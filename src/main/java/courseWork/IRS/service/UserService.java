@@ -9,6 +9,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
+
 @Service
 public class UserService {
 
@@ -46,4 +48,14 @@ public class UserService {
         return roleRepository.count();
     }
 
+    /**
+     * Поиск полной информации о пользователе (UserInfo) по логину (email).
+     * @param login Логин пользователя (email).
+     * @return Объект UserInfo.
+     */
+    @Transactional(readOnly = true)
+    public UserInfo findByLogin(String login) {
+        Optional<Role> role = roleRepository.findByLogin(login);
+        return role.map(Role::getUserInfo).orElse(null);
+    }
 }

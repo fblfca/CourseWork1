@@ -4,8 +4,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.ZonedDateTime;
+import java.time.LocalDateTime; // ИЗМЕНЕНО с ZonedDateTime
 
 @Entity
 @Table(name = "events")
@@ -23,10 +22,10 @@ public class Event {
     private Integer location;
 
     @Column(name = "start_time", nullable = false)
-    private ZonedDateTime startTime;
+    private LocalDateTime startTime; // ИЗМЕНЕНО
 
     @Column(name = "end_time", nullable = false)
-    private ZonedDateTime endTime;
+    private LocalDateTime endTime; // ИЗМЕНЕНО
 
     private Integer capacity;
 

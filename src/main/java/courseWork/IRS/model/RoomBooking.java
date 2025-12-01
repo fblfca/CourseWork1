@@ -6,6 +6,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime; // ИЗМЕНЕНО с ZonedDateTime
 import java.time.ZonedDateTime;
 
 @Entity
@@ -27,10 +28,10 @@ public class RoomBooking {
     private Integer slotNumber;
 
     @Column(name = "start_time", nullable = false)
-    private ZonedDateTime startTime;
+    private LocalDateTime startTime; // ИЗМЕНЕНО
 
     @Column(name = "end_time", nullable = false)
-    private ZonedDateTime endTime;
+    private LocalDateTime endTime; // ИЗМЕНЕНО
 
     @Column(nullable = false)
     private BigDecimal price;
@@ -47,4 +48,9 @@ public class RoomBooking {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private ZonedDateTime updatedAt;
+
+    // ДОБАВЛЕНО: Связь с Room для отображения в bookings.html
+    @ManyToOne
+    @JoinColumn(name = "room_id", insertable = false, updatable = false)
+    private Room room;
 }

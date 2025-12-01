@@ -2,15 +2,19 @@ package courseWork.IRS.controller;
 
 import courseWork.IRS.model.*;
 import courseWork.IRS.repository.*;
+import courseWork.IRS.service.CustomUserDetails;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
-import java.time.ZonedDateTime;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Controller
@@ -21,7 +25,7 @@ public class AttractionRoomController {
     @Autowired private RoomRepository roomRepository;
     @Autowired private RoomSlotRepository slotRepository;
     @Autowired private RoomBookingRepository roomBookingRepository;
-    @Autowired private RoleRepository roleRepository;
+    @Autowired private UserInfoRepository userInfoRepository; // Добавили репозиторий
 
     @GetMapping
     public String list(Model model,
@@ -33,37 +37,29 @@ public class AttractionRoomController {
         List<Attraction> attractions = attractionRepository.findAll();
         List<Room> rooms = roomRepository.findAll();
 
-        // Фильтр по названию
+        // Фильтрация (оставляем как было)
         if (search != null && !search.trim().isEmpty()) {
             String lower = search.toLowerCase().trim();
             attractions = attractions.stream()
-                    .filter(a -> a.getName() != null && a.getName().toLowerCase().contains(lower))
+                    .filter(a -> a.getName().toLowerCase().contains(lower) ||
+                            (a.getDescription() != null && a.getDescription().toLowerCase().contains(lower)))
                     .collect(Collectors.toList());
-
             rooms = rooms.stream()
-                    .filter(r -> r.getName() != null && r.getName().toLowerCase().contains(lower))
+                    .filter(r -> r.getName().toLowerCase().contains(lower) ||
+                            (r.getDescription() != null && r.getDescription().toLowerCase().contains(lower)))
                     .collect(Collectors.toList());
         }
 
-        // Фильтр по цене "от"
-        if (priceFrom != null && priceFrom.compareTo(BigDecimal.ZERO) > 0) {
-            attractions = attractions.stream()
-                    .filter(a -> a.getPrice() != null && a.getPrice().compareTo(priceFrom) >= 0)
-                    .collect(Collectors.toList());
-            rooms = rooms.stream()
-                    .filter(r -> r.getPricePerSlotHour() != null && r.getPricePerSlotHour().compareTo(priceFrom) >= 0)
-                    .collect(Collectors.toList());
-        }
+        BigDecimal finalPriceFrom = priceFrom != null ? priceFrom : BigDecimal.ZERO;
+        BigDecimal finalPriceTo = priceTo != null ? priceTo : new BigDecimal("999999.00");
 
-        // Фильтр по цене "до"
-        if (priceTo != null && priceTo.compareTo(BigDecimal.ZERO) > 0) {
-            attractions = attractions.stream()
-                    .filter(a -> a.getPrice() != null && a.getPrice().compareTo(priceTo) <= 0)
-                    .collect(Collectors.toList());
-            rooms = rooms.stream()
-                    .filter(r -> r.getPricePerSlotHour() != null && r.getPricePerSlotHour().compareTo(priceTo) <= 0)
-                    .collect(Collectors.toList());
-        }
+        attractions = attractions.stream()
+                .filter(a -> a.getPrice() != null && a.getPrice().compareTo(finalPriceFrom) >= 0 && a.getPrice().compareTo(finalPriceTo) <= 0)
+                .collect(Collectors.toList());
+
+        rooms = rooms.stream()
+                .filter(r -> r.getPricePerSlotHour() != null && r.getPricePerSlotHour().compareTo(finalPriceFrom) >= 0 && r.getPricePerSlotHour().compareTo(finalPriceTo) <= 0)
+                .collect(Collectors.toList());
 
         model.addAttribute("attractions", attractions);
         model.addAttribute("rooms", rooms);
@@ -76,34 +72,78 @@ public class AttractionRoomController {
     }
 
     @PostMapping("/book-room")
-    public String bookRoom(@RequestParam Integer userId,
-                           @RequestParam Integer roomId,
-                           @RequestParam Integer slotNumber,
-                           @RequestParam String startTime,
-                           @RequestParam String endTime,
-                           @RequestParam Integer peopleCount,
-                           Authentication auth) {
+    public String bookRoom(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @RequestParam Integer roomId,
+            @RequestParam Integer slotNumber,
+            @RequestParam String startTime,
+            @RequestParam String endTime,
+            @RequestParam Integer peopleCount,
+            // Новые параметры для поиска клиента
+            @RequestParam(required = false) String clientName,
+            @RequestParam(required = false) String clientPhone) {
 
-        if (!isAdminOrWorker(auth)) {
-            return "redirect:/attractions-rooms";
+        // Проверка прав: бронировать могут только Админ или Работник
+        // (хотя кнопка скрыта, проверка на сервере обязательна)
+        if (!isAdminOrWorker(currentUser)) {
+            return "redirect:/attractions-rooms?error=access_denied";
         }
 
+        // Поиск клиента по телефону
+        UserInfo client = userInfoRepository.findByPhone(clientPhone)
+                .orElse(null);
+
+        if (client == null) {
+            return "redirect:/attractions-rooms?error=client_not_found";
+        }
+
+        // (Опционально) Можно проверить совпадает ли имя, но телефон надежнее
+
+        Optional<Room> roomOpt = roomRepository.findById(roomId);
+        if (roomOpt.isEmpty()) {
+            return "redirect:/attractions-rooms?error=room_not_found";
+        }
+        Room room = roomOpt.get();
+
+        LocalDateTime startLdt = LocalDateTime.parse(startTime);
+        LocalDateTime endLdt = LocalDateTime.parse(endTime);
+
+        long hours = ChronoUnit.HOURS.between(startLdt, endLdt);
+        if (hours <= 0) {
+            return "redirect:/attractions-rooms?error=invalid_time";
+        }
+
+        BigDecimal price = room.getPricePerSlotHour().multiply(new BigDecimal(hours));
+
         RoomBooking booking = new RoomBooking();
-        booking.setUserId(userId);
+        booking.setUserId(client.getId()); // ID найденного клиента, а не работника!
         booking.setRoomId(roomId);
         booking.setSlotNumber(slotNumber);
-        booking.setStartTime(ZonedDateTime.parse(startTime));
-        booking.setEndTime(ZonedDateTime.parse(endTime));
+        booking.setStartTime(startLdt);
+        booking.setEndTime(endLdt);
         booking.setBookingWeight(peopleCount);
-        booking.setPrice(new BigDecimal("1500.00")); // можно улучшить расчёт
+        booking.setPrice(price);
 
-        roomBookingRepository.save(booking);
-        return "redirect:/attractions-rooms";
+        try {
+            roomBookingRepository.save(booking);
+        } catch (Exception e) {
+            return "redirect:/attractions-rooms?error=" + e.getMessage();
+        }
+
+        return "redirect:/attractions-rooms?success=booked_for_" + client.getSurname();
     }
 
+    // Вспомогательный метод для проверки прав
     private boolean isAdminOrWorker(Authentication auth) {
         if (auth == null || auth.getAuthorities() == null) return false;
         return auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_АДМИН") || a.getAuthority().equals("ROLE_РАБОТНИК"));
+    }
+
+    // Перегрузка для использования CustomUserDetails внутри метода
+    private boolean isAdminOrWorker(CustomUserDetails user) {
+        if (user == null) return false;
+        return user.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_АДМИН") || a.getAuthority().equals("ROLE_РАБОТНИК"));
     }
 }

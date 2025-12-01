@@ -1,6 +1,7 @@
 package courseWork.IRS;
 
 import courseWork.IRS.model.Role;
+import courseWork.IRS.model.UserInfo; // ДОБАВЛЕНО
 import courseWork.IRS.repository.RoleRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
@@ -23,6 +24,15 @@ public class AmusementParkApplication {
                 admin.setLogin("admin@park.ru");
                 admin.setPasswordHash(encoder.encode("admin123"));
                 admin.setRole("админ");
+
+                // ИЗМЕНЕНИЕ: Создание UserInfo для сохранения 1:1 связи
+                UserInfo adminInfo = new UserInfo();
+                adminInfo.setName("Системный");
+                adminInfo.setSurname("Администратор");
+                adminInfo.setPhone("+71112223344");
+                adminInfo.setRole(admin);
+                admin.setUserInfo(adminInfo);
+
                 roleRepository.save(admin);
             }
         };
