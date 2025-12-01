@@ -25,7 +25,7 @@ public class AttractionRoomController {
     @Autowired private RoomRepository roomRepository;
     @Autowired private RoomSlotRepository slotRepository;
     @Autowired private RoomBookingRepository roomBookingRepository;
-    @Autowired private UserInfoRepository userInfoRepository; // Добавили репозиторий
+    @Autowired private UserInfoRepository userInfoRepository;
 
     @GetMapping
     public String list(Model model,
@@ -37,7 +37,7 @@ public class AttractionRoomController {
         List<Attraction> attractions = attractionRepository.findAll();
         List<Room> rooms = roomRepository.findAll();
 
-        // Фильтрация (оставляем как было)
+        // Фильтр по названию
         if (search != null && !search.trim().isEmpty()) {
             String lower = search.toLowerCase().trim();
             attractions = attractions.stream()
@@ -50,6 +50,7 @@ public class AttractionRoomController {
                     .collect(Collectors.toList());
         }
 
+        // Фильтр по цене
         BigDecimal finalPriceFrom = priceFrom != null ? priceFrom : BigDecimal.ZERO;
         BigDecimal finalPriceTo = priceTo != null ? priceTo : new BigDecimal("999999.00");
 
@@ -63,6 +64,7 @@ public class AttractionRoomController {
 
         model.addAttribute("attractions", attractions);
         model.addAttribute("rooms", rooms);
+        // ВОЗВРАЩАЕМ ФЛАГ ДЛЯ THYMELEAF
         model.addAttribute("isAdminOrWorker", isAdminOrWorker(auth));
         model.addAttribute("search", search);
         model.addAttribute("priceFrom", priceFrom);
@@ -79,12 +81,11 @@ public class AttractionRoomController {
             @RequestParam String startTime,
             @RequestParam String endTime,
             @RequestParam Integer peopleCount,
-            // Новые параметры для поиска клиента
+            // Параметры для поиска клиента
             @RequestParam(required = false) String clientName,
             @RequestParam(required = false) String clientPhone) {
 
-        // Проверка прав: бронировать могут только Админ или Работник
-        // (хотя кнопка скрыта, проверка на сервере обязательна)
+        // Проверка прав на сервере
         if (!isAdminOrWorker(currentUser)) {
             return "redirect:/attractions-rooms?error=access_denied";
         }
@@ -96,8 +97,6 @@ public class AttractionRoomController {
         if (client == null) {
             return "redirect:/attractions-rooms?error=client_not_found";
         }
-
-        // (Опционально) Можно проверить совпадает ли имя, но телефон надежнее
 
         Optional<Room> roomOpt = roomRepository.findById(roomId);
         if (roomOpt.isEmpty()) {
@@ -116,7 +115,7 @@ public class AttractionRoomController {
         BigDecimal price = room.getPricePerSlotHour().multiply(new BigDecimal(hours));
 
         RoomBooking booking = new RoomBooking();
-        booking.setUserId(client.getId()); // ID найденного клиента, а не работника!
+        booking.setUserId(client.getId()); // ID найденного клиента
         booking.setRoomId(roomId);
         booking.setSlotNumber(slotNumber);
         booking.setStartTime(startLdt);
@@ -133,14 +132,14 @@ public class AttractionRoomController {
         return "redirect:/attractions-rooms?success=booked_for_" + client.getSurname();
     }
 
-    // Вспомогательный метод для проверки прав
+    // Вспомогательный метод для проверки прав (Authentication)
     private boolean isAdminOrWorker(Authentication auth) {
         if (auth == null || auth.getAuthorities() == null) return false;
         return auth.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_АДМИН") || a.getAuthority().equals("ROLE_РАБОТНИК"));
     }
 
-    // Перегрузка для использования CustomUserDetails внутри метода
+    // Перегрузка для проверки прав (CustomUserDetails)
     private boolean isAdminOrWorker(CustomUserDetails user) {
         if (user == null) return false;
         return user.getAuthorities().stream()

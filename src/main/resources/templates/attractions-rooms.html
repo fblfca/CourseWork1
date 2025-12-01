@@ -1,6 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org"
-      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <title>Залы и аттракционы</title>
@@ -83,16 +82,19 @@
                     </div>
 
                     <div class="card-footer text-center"
-                         sec:authorize="hasRole('АДМИН') or hasRole('РАБОТНИК')"
-                         th:if="${room.status == 'открыто'}">
+                         th:if="${isAdminOrWorker}"
+                         th:with="isRoomOpen=${room.status == 'открыто'}">
+
                         <button class="btn btn-success btn-sm w-100"
+                                th:if="${isRoomOpen}"
                                 data-bs-toggle="modal"
                                 th:attr="data-bs-target='#bookRoomModal' + ${room.id}">
                             <i class="bi bi-person-badge"></i> Оформить бронь для клиента
                         </button>
                     </div>
+
                     <div class="card-footer text-center bg-light"
-                         sec:authorize="!hasRole('АДМИН') and !hasRole('РАБОТНИК')">
+                         th:unless="${isAdminOrWorker}">
                         <small class="text-muted">Для бронирования звоните оператору</small>
                     </div>
                 </div>
