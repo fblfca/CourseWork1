@@ -30,15 +30,8 @@
         </div>
     </form>
 
-    <div th:if="${param.success}" class="alert alert-success">
-        Бронирование успешно создано!
-    </div>
-    <div th:if="${param.error == 'client_not_found'}" class="alert alert-danger">
-        Ошибка: Клиент с таким номером телефона не найден в базе данных.
-    </div>
-    <div th:if="${param.error != null and param.error != 'client_not_found'}" class="alert alert-danger" th:text="'Ошибка: ' + ${param.error}">
-        Ошибка
-    </div>
+    <div th:if="${param.success}" class="alert alert-success">Бронирование успешно создано!</div>
+    <div th:if="${param.error}" class="alert alert-danger" th:text="'Ошибка: ' + ${param.error}">Ошибка</div>
 
     <h3 class="text-primary mt-4 mb-3">Доступные Аттракционы</h3>
     <div class="row">
@@ -56,6 +49,9 @@
                             <span class="fw-bold" th:text="${attraction.price != null and attraction.price.doubleValue() > 0 ? attraction.price + ' ₽' : 'Бесплатно'}"></span>
                         </p>
                         <p class="card-text text-muted small mt-auto" th:text="${attraction.description}"></p>
+                    </div>
+                    <div class="card-footer bg-white border-top-0 d-flex flex-wrap justify-content-center gap-2 pb-3">
+                        <span class="badge bg-secondary">Живая очередь</span>
                     </div>
                 </div>
             </div>
@@ -81,66 +77,56 @@
                         <p class="card-text text-muted small mt-auto" th:text="${room.description}"></p>
                     </div>
 
-                    <div class="card-footer text-center"
-                         th:if="${isAdminOrWorker}"
-                         th:with="isRoomOpen=${room.status == 'открыто'}">
-
-                        <button class="btn btn-success btn-sm w-100"
-                                th:if="${isRoomOpen}"
-                                data-bs-toggle="modal"
-                                th:attr="data-bs-target='#bookRoomModal' + ${room.id}">
-                            <i class="bi bi-person-badge"></i> Оформить бронь для клиента
-                        </button>
-                    </div>
-
-                    <div class="card-footer text-center bg-light"
-                         th:unless="${isAdminOrWorker}">
-                        <small class="text-muted">Для бронирования звоните оператору</small>
+                    <div class="card-footer bg-white border-top-0 d-flex flex-wrap justify-content-center gap-2 pb-3">
+                        <th:block th:if="${isAdminOrWorker}">
+                            <button class="btn btn-success btn-sm flex-fill"
+                                    th:if="${room.status == 'открыто'}"
+                                    data-bs-toggle="modal"
+                                    th:attr="data-bs-target='#bookRoomModal' + ${room.id}">
+                                <i class="bi bi-person-badge"></i> Бронь для клиента
+                            </button>
+                        </th:block>
+                        <th:block th:unless="${isAdminOrWorker}">
+                            <small class="text-muted">Звоните оператору для брони</small>
+                        </th:block>
                     </div>
                 </div>
             </div>
 
-            <div class="modal fade" th:id="'bookRoomModal' + ${room.id}" tabindex="-1" aria-hidden="true"
-                 th:if="${room.status == 'открыто'}">
+            <div class="modal fade" th:id="'bookRoomModal' + ${room.id}" tabindex="-1" aria-hidden="true" th:if="${room.status == 'открыто'}">
                 <div class="modal-dialog">
                     <div class="modal-content">
                         <div class="modal-header bg-success text-white">
                             <h5 class="modal-title" th:text="'Оформление брони: ' + ${room.name}"></h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
                         <form th:action="@{/attractions-rooms/book-room}" method="post">
                             <div class="modal-body">
                                 <input type="hidden" name="roomId" th:value="${room.id}"/>
-
                                 <h6 class="text-success border-bottom pb-2 mb-3">Данные посетителя</h6>
                                 <div class="mb-3">
-                                    <label class="form-label">Номер телефона клиента (обязательно)</label>
-                                    <input type="text" name="clientPhone" class="form-control" placeholder="+7..." required/>
-                                    <div class="form-text">Клиент должен быть зарегистрирован в системе.</div>
+                                    <label class="form-label">Номер телефона</label>
+                                    <input type="text" name="clientPhone" class="form-control" required/>
                                 </div>
                                 <div class="mb-3">
-                                    <label class="form-label">Имя клиента</label>
-                                    <input type="text" name="clientName" class="form-control" placeholder="Иван"/>
+                                    <label class="form-label">Имя (необязательно)</label>
+                                    <input type="text" name="clientName" class="form-control"/>
                                 </div>
-
                                 <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">Параметры брони</h6>
                                 <div class="mb-3">
-                                    <label class="form-label">Слот (номер стола/дорожки)</label>
+                                    <label class="form-label">Слот</label>
                                     <input type="number" name="slotNumber" class="form-control" value="1" min="1" required/>
                                 </div>
-
                                 <div class="mb-3">
                                     <label class="form-label">Начало</label>
                                     <input type="datetime-local" name="startTime" class="form-control" required/>
                                 </div>
-
                                 <div class="mb-3">
                                     <label class="form-label">Конец</label>
                                     <input type="datetime-local" name="endTime" class="form-control" required/>
                                 </div>
-
                                 <div class="mb-3">
-                                    <label class="form-label">Количество человек</label>
+                                    <label class="form-label">Чел.</label>
                                     <input type="number" name="peopleCount" class="form-control" min="1" required/>
                                 </div>
                             </div>
@@ -154,12 +140,7 @@
             </div>
         </th:block>
     </div>
-
-    <div th:if="${rooms == null or rooms.isEmpty()}" class="text-center py-3">
-        <p class="text-muted">Залы для бронирования не найдены.</p>
-    </div>
 </div>
-
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

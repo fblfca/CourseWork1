@@ -77,12 +77,12 @@
                             <div th:if="${isAdminOrWorker}" class="d-flex gap-2 w-100">
                                 <a th:href="@{/events/edit/{id}(id=${event.id})}"
                                    class="btn btn-warning btn-sm">
-                                    <i class="bi bi-pencil"></i> Редактировать
+                                    <i class="bi bi-pencil">Ред.</i>
                                 </a>
                                 <a th:href="@{/events/delete/{id}(id=${event.id})}"
                                    class="btn btn-danger btn-sm"
                                    onclick="return confirm('Удалить мероприятие?')">
-                                    <i class="bi bi-trash"></i> Удалить
+                                    <i class="bi bi-trash">Удал.</i>
                                 </a>
                             </div>
                         </div>

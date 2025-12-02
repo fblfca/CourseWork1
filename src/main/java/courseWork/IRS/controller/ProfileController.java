@@ -2,22 +2,28 @@ package courseWork.IRS.controller;
 
 import courseWork.IRS.model.Role;
 import courseWork.IRS.model.UserInfo;
+import courseWork.IRS.repository.RoleRepository;
 import courseWork.IRS.service.CustomUserDetails;
 import courseWork.IRS.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.time.ZonedDateTime;
+import java.util.Optional;
 
 @Controller
 public class ProfileController {
 
-    @Autowired
-    private UserService userService;
+    @Autowired private UserService userService;
+    @Autowired private RoleRepository roleRepository;
+    @Autowired private BCryptPasswordEncoder passwordEncoder;
 
     @GetMapping("/profile")
     public String showProfile(
@@ -25,25 +31,21 @@ public class ProfileController {
             Model model,
             Authentication auth) {
 
-        // Получаем полную информацию о пользователе
         UserInfo fullUser = userService.findByLogin(currentUser.getUsername());
 
-        // ЗАЩИТА ОТ ОШИБКИ 500 (Для админа или некорректных данных)
+        // Защита от отсутствия данных
         if (fullUser == null) {
             fullUser = new UserInfo();
-            fullUser.setName("Администратор");
+            fullUser.setName("Пользователь");
             fullUser.setSurname("Системный");
             fullUser.setPhone("Не указан");
-
-            // Создаем временную роль для отображения
             Role tempRole = new Role();
             tempRole.setLogin(currentUser.getUsername());
-            tempRole.setRole("админ"); // Предполагаем админа, если данных нет
+            tempRole.setRole("неизвестно");
             tempRole.setCreatedAt(ZonedDateTime.now());
             fullUser.setRole(tempRole);
         }
 
-        model.addAttribute("userCount", userService.getUserCount());
         model.addAttribute("username", auth.getName());
         model.addAttribute("user", fullUser);
 
@@ -52,5 +54,18 @@ public class ProfileController {
         model.addAttribute("isAdminOrWorker", isAdminOrWorker);
 
         return "profile";
+    }
+
+    @PostMapping("/profile/change-password")
+    public String changePassword(@AuthenticationPrincipal CustomUserDetails currentUser,
+                                 @RequestParam String newPassword) {
+        Optional<Role> roleOpt = roleRepository.findById(currentUser.getId());
+        if (roleOpt.isPresent()) {
+            Role role = roleOpt.get();
+            role.setPasswordHash(passwordEncoder.encode(newPassword));
+            roleRepository.save(role);
+            return "redirect:/profile?success=password_changed";
+        }
+        return "redirect:/profile?error=change_failed";
     }
 }

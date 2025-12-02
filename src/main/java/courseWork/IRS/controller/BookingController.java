@@ -33,7 +33,11 @@ public class BookingController {
     public String bookings(
             Model model,
             Authentication auth,
-            @AuthenticationPrincipal CustomUserDetails currentUser) {
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            // ФИЛЬТРЫ
+            @RequestParam(required = false) String clientName,
+            @RequestParam(required = false) String clientPhone,
+            @RequestParam(required = false) String objectTitle) {
 
         boolean isAdminOrWorker = auth.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_АДМИН") || a.getAuthority().equals("ROLE_РАБОТНИК"));
@@ -42,75 +46,73 @@ public class BookingController {
         List<RoomBooking> roomBookings;
 
         if (isAdminOrWorker) {
+            // Ищем все и фильтруем в памяти (можно оптимизировать через @Query, но для курсовой сойдет stream)
             eventBookings = eventBookingRepository.findAll();
             roomBookings = roomBookingRepository.findAll();
+
+            if (clientName != null && !clientName.isEmpty()) {
+                String q = clientName.toLowerCase();
+                eventBookings = eventBookings.stream().filter(b -> b.getUserInfo() != null && (b.getUserInfo().getName() + " " + b.getUserInfo().getSurname()).toLowerCase().contains(q)).collect(Collectors.toList());
+                roomBookings = roomBookings.stream().filter(b -> b.getUserInfo() != null && (b.getUserInfo().getName() + " " + b.getUserInfo().getSurname()).toLowerCase().contains(q)).collect(Collectors.toList());
+            }
+            if (clientPhone != null && !clientPhone.isEmpty()) {
+                eventBookings = eventBookings.stream().filter(b -> b.getUserInfo() != null && b.getUserInfo().getPhone().contains(clientPhone)).collect(Collectors.toList());
+                roomBookings = roomBookings.stream().filter(b -> b.getUserInfo() != null && b.getUserInfo().getPhone().contains(clientPhone)).collect(Collectors.toList());
+            }
+            if (objectTitle != null && !objectTitle.isEmpty()) {
+                String q = objectTitle.toLowerCase();
+                eventBookings = eventBookings.stream().filter(b -> b.getEvent().getTitle().toLowerCase().contains(q)).collect(Collectors.toList());
+                roomBookings = roomBookings.stream().filter(b -> b.getRoom().getName().toLowerCase().contains(q)).collect(Collectors.toList());
+            }
+
         } else {
             Integer userId = currentUser.getId();
             eventBookings = eventBookingRepository.findByUserId(userId);
             roomBookings = roomBookingRepository.findByUserId(userId);
         }
 
-        // ФИЛЬТРАЦИЯ: Убираем отмененные брони, чтобы они "исчезли"
-        eventBookings = eventBookings.stream()
-                .filter(b -> !"отменено".equals(b.getStatus()))
-                .collect(Collectors.toList());
-
-        roomBookings = roomBookings.stream()
-                .filter(b -> !"отменено".equals(b.getStatus()))
-                .collect(Collectors.toList());
+        // Скрываем отмененные
+        eventBookings = eventBookings.stream().filter(b -> !"отменено".equals(b.getStatus())).collect(Collectors.toList());
+        roomBookings = roomBookings.stream().filter(b -> !"отменено".equals(b.getStatus())).collect(Collectors.toList());
 
         model.addAttribute("eventBookings", eventBookings);
         model.addAttribute("roomBookings", roomBookings);
         model.addAttribute("isAdminOrWorker", isAdminOrWorker);
+
+        // Возвращаем значения фильтров в форму
+        model.addAttribute("clientName", clientName);
+        model.addAttribute("clientPhone", clientPhone);
+        model.addAttribute("objectTitle", objectTitle);
+
         return "bookings";
     }
 
-    // --- ОТМЕНА БРОНИРОВАНИЙ ---
-
+    // Методы cancel/update оставляем те же
     @PostMapping("/cancel/event/{id}")
     public String cancelEventBooking(@PathVariable Integer id) {
         Optional<EventBooking> bookingOpt = eventBookingRepository.findById(id);
-        if (bookingOpt.isPresent()) {
-            EventBooking booking = bookingOpt.get();
-            booking.setStatus("отменено");
-            eventBookingRepository.save(booking);
-        }
+        bookingOpt.ifPresent(b -> { b.setStatus("отменено"); eventBookingRepository.save(b); });
         return "redirect:/bookings";
     }
 
     @PostMapping("/cancel/room/{id}")
     public String cancelRoomBooking(@PathVariable Integer id) {
         Optional<RoomBooking> bookingOpt = roomBookingRepository.findById(id);
-        if (bookingOpt.isPresent()) {
-            RoomBooking booking = bookingOpt.get();
-            booking.setStatus("отменено");
-            roomBookingRepository.save(booking);
-        }
+        bookingOpt.ifPresent(b -> { b.setStatus("отменено"); roomBookingRepository.save(b); });
         return "redirect:/bookings";
     }
 
-    // --- РЕДАКТИРОВАНИЕ БРОНИРОВАНИЙ (ЗАЛЫ) ---
-
     @PostMapping("/update/room")
-    public String updateRoomBooking(
-            @RequestParam Integer bookingId,
-            @RequestParam Integer slotNumber,
-            @RequestParam String startTime,
-            @RequestParam String endTime,
-            @RequestParam Integer bookingWeight) {
-
+    public String updateRoomBooking(@RequestParam Integer bookingId, @RequestParam Integer slotNumber, @RequestParam String startTime, @RequestParam String endTime, @RequestParam Integer bookingWeight) {
         Optional<RoomBooking> bookingOpt = roomBookingRepository.findById(bookingId);
         if (bookingOpt.isPresent()) {
             RoomBooking booking = bookingOpt.get();
             booking.setSlotNumber(slotNumber);
             booking.setBookingWeight(bookingWeight);
-
             LocalDateTime start = LocalDateTime.parse(startTime);
             LocalDateTime end = LocalDateTime.parse(endTime);
             booking.setStartTime(start);
             booking.setEndTime(end);
-
-            // Пересчет цены
             Optional<Room> roomOpt = roomRepository.findById(booking.getRoomId());
             if (roomOpt.isPresent()) {
                 long hours = ChronoUnit.HOURS.between(start, end);
