@@ -7,4 +7,6 @@ import java.util.List;
 public interface EventBookingRepository extends JpaRepository<EventBooking, Integer> {
     List<EventBooking> findByUserId(Integer userId);
     List<EventBooking> findByEventId(Integer eventId);
+    // ИЗМЕНЕНИЕ ДЛЯ ПУНКТА 1: Добавлен метод для проверки существующей брони
+    List<EventBooking> findByUserIdAndEventId(Integer userId, Integer eventId);
 }

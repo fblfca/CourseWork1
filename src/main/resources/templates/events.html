@@ -1,6 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org"
-      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <title>Мероприятия</title>
@@ -14,27 +13,32 @@
 <div class="container mt-5">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="text-primary">Мероприятия в парке</h2>
-        <div th:if="${isAdminOrWorker}">
+        <div th:if="${isAdmin}">
             <a th:href="@{/events/edit}" class="btn btn-success btn-lg">
                 <i class="bi bi-plus-circle"></i> Добавить мероприятие
             </a>
         </div>
     </div>
 
+    <div th:if="${param.error}" class="alert alert-danger">
+        <span th:if="${param.error[0] == 'already_booked'}">Вы уже записаны на это событие! (1 бронь на аккаунт)</span>
+        <span th:if="${param.error[0] == 'access_denied'}">Доступ запрещен.</span>
+        <span th:unless="${param.error[0] == 'already_booked' or param.error[0] == 'access_denied'}" th:text="${param.error[0]}">Ошибка</span>
+    </div>
+    <div th:if="${param.success}" class="alert alert-success">Действие выполнено успешно!</div>
+
+
     <div class="card shadow mb-4">
         <div class="card-body">
             <form method="get" class="row g-3">
                 <div class="col-md-4">
-                    <input type="text" name="title" th:value="${title}" class="form-control"
-                           placeholder="Поиск по названию">
+                    <input type="text" name="title" th:value="${title}" class="form-control" placeholder="Поиск по названию">
                 </div>
                 <div class="col-md-3">
-                    <input type="number" step="0.01" name="priceFrom" th:value="${priceFrom}"
-                           class="form-control" placeholder="Цена от">
+                    <input type="number" step="0.01" name="priceFrom" th:value="${priceFrom}" class="form-control" placeholder="Цена от">
                 </div>
                 <div class="col-md-3">
-                    <input type="number" step="0.01" name="priceTo" th:value="${priceTo}"
-                           class="form-control" placeholder="Цена до">
+                    <input type="number" step="0.01" name="priceTo" th:value="${priceTo}" class="form-control" placeholder="Цена до">
                 </div>
                 <div class="col-md-2">
                     <button type="submit" class="btn btn-primary w-100">Найти</button>
@@ -49,41 +53,22 @@
                 <div class="card shadow h-100">
                     <div class="card-body d-flex flex-column">
                         <h5 class="card-title text-primary" th:text="${event.title}">Название</h5>
-
                         <p class="card-text">
-                            <strong>Локация:</strong> <span th:text="${event.location}">1</span><br>
-                            <strong>Начало:</strong>
-                            <span th:text="${#temporals.format(event.startTime, 'dd.MM.yyyy HH:mm')}">01.01.2025 10:00</span><br>
-                            <strong>Окончание:</strong>
-                            <span th:text="${#temporals.format(event.endTime, 'dd.MM.yyyy HH:mm')}">01.01.2025 12:00</span><br>
-                            <strong>Вместимость:</strong>
-                            <span th:text="${event.capacity != null and event.capacity != null} ? ${event.capacity} : 'Не указано'">Не указано</span><br>
-                            <strong>Цена:</strong>
-                            <span th:text="${event.price != null} ? ${event.price} + ' ₽' : 'Бесплатно'">Бесплатно</span>
+                            <strong>Начало:</strong> <span th:text="${#temporals.format(event.startTime, 'dd.MM.yyyy HH:mm')}"></span><br>
+                            <strong>Цена:</strong> <span th:text="${event.price}">0</span> руб.
                         </p>
-
-                        <div th:if="${event.description != null and !event.description.isBlank()}"
-                             class="text-muted small mb-3">
-                            <em th:text="${event.description}">Описание отсутствует</em>
-                        </div>
+                        <p class="card-text small text-muted" th:text="${event.description}"></p>
 
                         <div class="mt-auto d-flex gap-2">
-                            <a th:href="@{/events/book/{id}(id=${event.id})}"
-                               class="btn btn-outline-success flex-fill"
-                               onclick="return confirm('Забронировать это мероприятие?')">
-                                Забронировать
-                            </a>
+                            <form th:action="@{/events/book/{id}(id=${event.id})}" method="post" class="flex-fill">
+                                <button type="submit" class="btn btn-outline-success w-100" onclick="return confirm('Забронировать?')">
+                                    Забронировать
+                                </button>
+                            </form>
 
-                            <div th:if="${isAdminOrWorker}" class="d-flex gap-2 w-100">
-                                <a th:href="@{/events/edit/{id}(id=${event.id})}"
-                                   class="btn btn-warning btn-sm">
-                                    <i class="bi bi-pencil">Ред.</i>
-                                </a>
-                                <a th:href="@{/events/delete/{id}(id=${event.id})}"
-                                   class="btn btn-danger btn-sm"
-                                   onclick="return confirm('Удалить мероприятие?')">
-                                    <i class="bi bi-trash">Удал.</i>
-                                </a>
+                            <div th:if="${isAdmin}" class="d-flex gap-2">
+                                <a th:href="@{/events/edit/{id}(id=${event.id})}" class="btn btn-warning btn-sm"><i class="bi bi-pencil"></i></a>
+                                <a th:href="@{/events/delete/{id}(id=${event.id})}" class="btn btn-danger btn-sm" onclick="return confirm('Удалить?')"><i class="bi bi-trash"></i></a>
                             </div>
                         </div>
                     </div>
@@ -91,12 +76,6 @@
             </div>
         </th:block>
     </div>
-
-    <div th:if="${events == null or events.isEmpty()}" class="text-center py-5">
-        <h4 class="text-muted">Мероприятия не найдены</h4>
-        <p>Попробуйте изменить параметры поиска или добавить новое мероприятие.</p>
-    </div>
 </div>
-
 </body>
 </html>

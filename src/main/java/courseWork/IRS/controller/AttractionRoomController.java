@@ -23,7 +23,6 @@ public class AttractionRoomController {
 
     @Autowired private AttractionRepository attractionRepository;
     @Autowired private RoomRepository roomRepository;
-    @Autowired private RoomSlotRepository slotRepository;
     @Autowired private RoomBookingRepository roomBookingRepository;
     @Autowired private UserInfoRepository userInfoRepository;
 
@@ -37,20 +36,12 @@ public class AttractionRoomController {
         List<Attraction> attractions = attractionRepository.findAll();
         List<Room> rooms = roomRepository.findAll();
 
-        // Фильтр по названию
         if (search != null && !search.trim().isEmpty()) {
             String lower = search.toLowerCase().trim();
-            attractions = attractions.stream()
-                    .filter(a -> a.getName().toLowerCase().contains(lower) ||
-                            (a.getDescription() != null && a.getDescription().toLowerCase().contains(lower)))
-                    .collect(Collectors.toList());
-            rooms = rooms.stream()
-                    .filter(r -> r.getName().toLowerCase().contains(lower) ||
-                            (r.getDescription() != null && r.getDescription().toLowerCase().contains(lower)))
-                    .collect(Collectors.toList());
+            attractions = attractions.stream().filter(a -> a.getName().toLowerCase().contains(lower)).collect(Collectors.toList());
+            rooms = rooms.stream().filter(r -> r.getName().toLowerCase().contains(lower)).collect(Collectors.toList());
         }
 
-        // Фильтр по цене
         BigDecimal finalPriceFrom = priceFrom != null ? priceFrom : BigDecimal.ZERO;
         BigDecimal finalPriceTo = priceTo != null ? priceTo : new BigDecimal("999999.00");
 
@@ -64,11 +55,20 @@ public class AttractionRoomController {
 
         model.addAttribute("attractions", attractions);
         model.addAttribute("rooms", rooms);
-        // ВОЗВРАЩАЕМ ФЛАГ ДЛЯ THYMELEAF
-        model.addAttribute("isAdminOrWorker", isAdminOrWorker(auth));
         model.addAttribute("search", search);
         model.addAttribute("priceFrom", priceFrom);
         model.addAttribute("priceTo", priceTo);
+
+        // ФЛАГИ ПРАВ
+        boolean isAdmin = isAdmin(auth);
+        model.addAttribute("isAdmin", isAdmin);
+        model.addAttribute("isAdminOrWorker", isAdminOrWorker(auth));
+
+        // Для модальных окон добавления
+        if (isAdmin) {
+            model.addAttribute("newAttraction", new Attraction());
+            model.addAttribute("newRoom", new Room());
+        }
 
         return "attractions-rooms";
     }
@@ -81,41 +81,46 @@ public class AttractionRoomController {
             @RequestParam String startTime,
             @RequestParam String endTime,
             @RequestParam Integer peopleCount,
-            // Параметры для поиска клиента
-            @RequestParam(required = false) String clientName,
             @RequestParam(required = false) String clientPhone) {
 
-        // Проверка прав на сервере
-        if (!isAdminOrWorker(currentUser)) {
-            return "redirect:/attractions-rooms?error=access_denied";
+        if (currentUser == null) return "redirect:/login";
+
+        boolean hasPrivileges = isAdminOrWorker(currentUser.getAuthorities());
+
+        // Посетителям запрещено дергать этот метод напрямую (хотя кнопка скрыта, проверка не помешает)
+        // Но если вы хотите разрешить им бронировать "через оператора" в будущем, логику можно оставить.
+        // Сейчас по ТЗ: посетитель звонит оператору -> оператор (worker) бронирует.
+        // Значит, этот метод вызывают только Админ или Работник.
+
+        if (!hasPrivileges) {
+            // Если вдруг посетитель отправил POST запрос вручную
+            return "redirect:/attractions-rooms?error=call_operator";
         }
 
-        // Поиск клиента по телефону
-        UserInfo client = userInfoRepository.findByPhone(clientPhone)
-                .orElse(null);
-
-        if (client == null) {
-            return "redirect:/attractions-rooms?error=client_not_found";
+        UserInfo client;
+        if (clientPhone != null && !clientPhone.isEmpty()) {
+            client = userInfoRepository.findByPhone(clientPhone).orElse(null);
+            if (client == null) return "redirect:/attractions-rooms?error=client_not_found";
+        } else {
+            // Если работник бронирует на себя (редкий кейс, но возможный)
+            client = userInfoRepository.findById(currentUser.getId()).orElse(null);
         }
+
+        if (client == null) return "redirect:/attractions-rooms?error=client_not_found";
 
         Optional<Room> roomOpt = roomRepository.findById(roomId);
-        if (roomOpt.isEmpty()) {
-            return "redirect:/attractions-rooms?error=room_not_found";
-        }
-        Room room = roomOpt.get();
+        if (roomOpt.isEmpty()) return "redirect:/attractions-rooms?error=room_not_found";
 
+        Room room = roomOpt.get();
         LocalDateTime startLdt = LocalDateTime.parse(startTime);
         LocalDateTime endLdt = LocalDateTime.parse(endTime);
-
         long hours = ChronoUnit.HOURS.between(startLdt, endLdt);
-        if (hours <= 0) {
-            return "redirect:/attractions-rooms?error=invalid_time";
-        }
+        if (hours <= 0) return "redirect:/attractions-rooms?error=invalid_time";
 
         BigDecimal price = room.getPricePerSlotHour().multiply(new BigDecimal(hours));
 
         RoomBooking booking = new RoomBooking();
-        booking.setUserId(client.getId()); // ID найденного клиента
+        booking.setUserId(client.getId());
         booking.setRoomId(roomId);
         booking.setSlotNumber(slotNumber);
         booking.setStartTime(startLdt);
@@ -123,26 +128,55 @@ public class AttractionRoomController {
         booking.setBookingWeight(peopleCount);
         booking.setPrice(price);
 
-        try {
-            roomBookingRepository.save(booking);
-        } catch (Exception e) {
-            return "redirect:/attractions-rooms?error=" + e.getMessage();
-        }
+        roomBookingRepository.save(booking);
 
         return "redirect:/attractions-rooms?success=booked_for_" + client.getSurname();
     }
 
-    // Вспомогательный метод для проверки прав (Authentication)
+    // --- МЕТОДЫ УПРАВЛЕНИЯ ---
+    @PostMapping("/attraction/save")
+    public String saveAttraction(@ModelAttribute Attraction attraction, Authentication auth) {
+        if (!isAdmin(auth)) return "redirect:/attractions-rooms?error=access_denied";
+        attractionRepository.save(attraction);
+        return "redirect:/attractions-rooms";
+    }
+
+    @PostMapping("/attraction/delete/{id}")
+    public String deleteAttraction(@PathVariable Integer id, Authentication auth) {
+        if (!isAdmin(auth)) return "redirect:/attractions-rooms?error=access_denied";
+        attractionRepository.deleteById(id);
+        return "redirect:/attractions-rooms";
+    }
+
+    @PostMapping("/room/save")
+    public String saveRoom(@ModelAttribute Room room, Authentication auth) {
+        if (!isAdmin(auth)) return "redirect:/attractions-rooms?error=access_denied";
+        roomRepository.save(room);
+        return "redirect:/attractions-rooms";
+    }
+
+    @PostMapping("/room/delete/{id}")
+    public String deleteRoom(@PathVariable Integer id, Authentication auth) {
+        if (!isAdmin(auth)) return "redirect:/attractions-rooms?error=access_denied";
+        roomRepository.deleteById(id);
+        return "redirect:/attractions-rooms";
+    }
+
     private boolean isAdminOrWorker(Authentication auth) {
         if (auth == null || auth.getAuthorities() == null) return false;
         return auth.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_АДМИН") || a.getAuthority().equals("ROLE_РАБОТНИК"));
     }
 
-    // Перегрузка для проверки прав (CustomUserDetails)
-    private boolean isAdminOrWorker(CustomUserDetails user) {
-        if (user == null) return false;
-        return user.getAuthorities().stream()
+    private boolean isAdminOrWorker(java.util.Collection<? extends org.springframework.security.core.GrantedAuthority> authorities) {
+        if (authorities == null) return false;
+        return authorities.stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_АДМИН") || a.getAuthority().equals("ROLE_РАБОТНИК"));
+    }
+
+    private boolean isAdmin(Authentication auth) {
+        if (auth == null || auth.getAuthorities() == null) return false;
+        return auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_АДМИН"));
     }
 }

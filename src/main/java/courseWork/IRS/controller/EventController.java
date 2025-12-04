@@ -36,64 +36,77 @@ public class EventController {
                          Model model,
                          Authentication auth) {
 
-        // Начальные и конечные границы для времени:
-        LocalDateTime fromTime = LocalDateTime.of(date != null ? date : LocalDate.now(), LocalTime.MIN);
-        LocalDateTime toTime = LocalDateTime.of(date != null ? date : LocalDate.now().plusYears(1), LocalTime.MAX);
+        // ... (логика фильтрации - не меняется)
 
-        // Если дата не указана, ищем события в широком диапазоне (например, ближайшие 3 месяца)
-        if (date == null) {
-            fromTime = LocalDateTime.now().minusDays(30);
-            toTime = LocalDateTime.now().plusMonths(3);
+        List<Event> events;
+
+        BigDecimal minPrice = priceFrom != null ? priceFrom : BigDecimal.ZERO;
+        BigDecimal maxPrice = priceTo != null ? priceTo : new BigDecimal("999999"); // Достаточно большое число
+
+        LocalDateTime fromTime = null;
+        LocalDateTime toTime = null;
+        if (date != null) {
+            fromTime = date.atStartOfDay();
+            toTime = date.atTime(LocalTime.MAX);
         }
 
-        // Фильтры по умолчанию
-        String finalTitle = title != null && !title.trim().isEmpty() ? title : "";
-        BigDecimal finalPriceFrom = priceFrom != null ? priceFrom : BigDecimal.ZERO;
-        BigDecimal finalPriceTo = priceTo != null ? priceTo : new BigDecimal("999999.00");
+        if (title != null || date != null || priceFrom != null || priceTo != null) {
+            // Если есть хотя бы один параметр фильтрации, используем объединенный метод
+            events = eventRepository.findByTitleContainingIgnoreCaseAndPriceBetweenAndStartTimeBetween(
+                    title != null ? title : "",
+                    minPrice,
+                    maxPrice,
+                    fromTime != null ? fromTime : LocalDateTime.MIN,
+                    toTime != null ? toTime : LocalDateTime.MAX
+            );
+        } else {
+            // Иначе - все события
+            events = eventRepository.findAll();
+        }
 
-        // ИЗМЕНЕНИЕ: Используем объединенный метод репозитория для фильтрации на уровне БД
-        List<Event> events = eventRepository.findByTitleContainingIgnoreCaseAndPriceBetweenAndStartTimeBetween(
-                finalTitle,
-                finalPriceFrom,
-                finalPriceTo,
-                fromTime,
-                toTime
-        );
 
         model.addAttribute("events", events);
         model.addAttribute("isAdminOrWorker", isAdminOrWorker(auth));
         model.addAttribute("title", title);
         model.addAttribute("priceFrom", priceFrom);
         model.addAttribute("priceTo", priceTo);
-        model.addAttribute("date", date);
+        model.addAttribute("date", date); // ДОБАВЛЕНО для сохранения значения в форме
 
         return "events";
     }
 
     @GetMapping("/edit")
-    public String showEventForm(Model model) {
+    public String createEventForm(Model model, Authentication auth) {
+        if (!isAdminOrWorker(auth)) return "redirect:/events?error=access_denied";
+
         model.addAttribute("event", new Event());
         return "event-form";
     }
 
     @GetMapping("/edit/{id}")
-    public String showEditForm(@PathVariable Integer id, Model model) {
-        Event event = eventRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Неверный ID события:" + id));
-        model.addAttribute("event", event);
+    public String editEventForm(@PathVariable Integer id, Model model, Authentication auth) {
+        if (!isAdminOrWorker(auth)) return "redirect:/events?error=access_denied";
+
+        Optional<Event> event = eventRepository.findById(id);
+        if (event.isEmpty()) {
+            return "redirect:/events?error=event_not_found";
+        }
+        model.addAttribute("event", event.get());
         return "event-form";
     }
 
     @PostMapping("/save")
     public String saveEvent(@ModelAttribute Event event, Authentication auth) {
         if (!isAdminOrWorker(auth)) return "redirect:/events?error=access_denied";
+
         eventRepository.save(event);
-        return "redirect:/events";
+        return "redirect:/events?success=saved";
     }
 
     @GetMapping("/delete/{id}")
     public String deleteEvent(@PathVariable Integer id, Authentication auth) {
         if (!isAdminOrWorker(auth)) return "redirect:/events?error=access_denied";
+
         eventRepository.deleteById(id);
         return "redirect:/events?success=deleted";
     }
@@ -109,6 +122,13 @@ public class EventController {
         if (event == null) {
             return "redirect:/events?error=event_not_found";
         }
+
+        // --- ИЗМЕНЕНИЕ ДЛЯ ПУНКТА 1: Проверка существующей брони ---
+        List<EventBooking> existingBookings = bookingRepository.findByUserIdAndEventId(currentUser.getId(), eventId);
+        if (!existingBookings.isEmpty()) {
+            return "redirect:/events?error=already_booked";
+        }
+        // -----------------------------------------------------------
 
         // Проверка, что пользователь существует
         if (roleRepository.findById(currentUser.getId()).isEmpty()) {
