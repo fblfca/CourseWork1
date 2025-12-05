@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Об авторе</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        /* Стили для прижатия футера к низу страницы */
+        html, body {
+            height: 100%;
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+        .content {
+            flex: 1 0 auto;
+        }
+        .footer {
+            flex-shrink: 0;
+            background-color: #343a40; /* bg-dark */
+            color: white;
+            padding: 1rem 0;
+            text-align: center;
+        }
+    </style>
+</head>
+<body class="bg-light">
+
+<div th:replace="~{fragments/header :: header}"></div>
+
+<div class="content container d-flex align-items-center justify-content-center">
+    <div class="card shadow-lg border-0" style="max-width: 800px; width: 100%;">
+        <div class="card-body p-5 text-center">
+
+            <div class="mb-4">
+                <i class="bi bi-person-badge text-primary" style="font-size: 4rem;"></i>
+            </div>
+
+            <h2 class="card-title text-primary mb-4 fw-bold">Об авторе</h2>
+
+            <hr class="my-4 w-50 mx-auto text-muted">
+
+            <p class="lead mb-4" style="font-size: 1.25rem; line-height: 1.8;">
+                Ваш покорный слуга — студент
+                <span class="fw-bold text-dark">Финансового университета при правительстве РФ</span>
+                <br>
+                <span class="text-uppercase fw-bold text-primary mt-2 d-inline-block">Никифоров Максим Алексеевич</span>.
+            </p>
+
+            <div class="alert alert-light border shadow-sm" role="alert">
+                Надеюсь вам понравится удобство и функциональность моего сайта!
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<footer class="footer mt-5">
+    <div class="container">
+        <span class="text-white-50">@NikifoMax</span>
+    </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -34,19 +34,17 @@ public class BookingController {
             Model model,
             Authentication auth,
             @AuthenticationPrincipal CustomUserDetails currentUser,
-            // ФИЛЬТРЫ
             @RequestParam(required = false) String clientName,
             @RequestParam(required = false) String clientPhone,
             @RequestParam(required = false) String objectTitle) {
 
-        boolean isAdminOrWorker = auth.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_АДМИН") || a.getAuthority().equals("ROLE_РАБОТНИК"));
+        boolean isAdminOrWorker = isAdminOrWorker(auth);
 
         List<EventBooking> eventBookings;
         List<RoomBooking> roomBookings;
 
         if (isAdminOrWorker) {
-            // Ищем все и фильтруем в памяти (можно оптимизировать через @Query, но для курсовой сойдет stream)
+            // Для Админа/Работника: показываем всё с возможностью фильтрации
             eventBookings = eventBookingRepository.findAll();
             roomBookings = roomBookingRepository.findAll();
 
@@ -66,12 +64,13 @@ public class BookingController {
             }
 
         } else {
+            // Для Посетителя: только его брони
             Integer userId = currentUser.getId();
             eventBookings = eventBookingRepository.findByUserId(userId);
             roomBookings = roomBookingRepository.findByUserId(userId);
         }
 
-        // Скрываем отмененные
+        // Скрываем отмененные записи из списка (чтобы не захламлять)
         eventBookings = eventBookings.stream().filter(b -> !"отменено".equals(b.getStatus())).collect(Collectors.toList());
         roomBookings = roomBookings.stream().filter(b -> !"отменено".equals(b.getStatus())).collect(Collectors.toList());
 
@@ -79,7 +78,6 @@ public class BookingController {
         model.addAttribute("roomBookings", roomBookings);
         model.addAttribute("isAdminOrWorker", isAdminOrWorker);
 
-        // Возвращаем значения фильтров в форму
         model.addAttribute("clientName", clientName);
         model.addAttribute("clientPhone", clientPhone);
         model.addAttribute("objectTitle", objectTitle);
@@ -87,23 +85,44 @@ public class BookingController {
         return "bookings";
     }
 
-    // Методы cancel/update оставляем те же
+    // ОТМЕНА СОБЫТИЯ (Посетитель может отменить свое, Админ - любое)
     @PostMapping("/cancel/event/{id}")
-    public String cancelEventBooking(@PathVariable Integer id) {
+    public String cancelEventBooking(@PathVariable Integer id, @AuthenticationPrincipal CustomUserDetails currentUser) {
         Optional<EventBooking> bookingOpt = eventBookingRepository.findById(id);
-        bookingOpt.ifPresent(b -> { b.setStatus("отменено"); eventBookingRepository.save(b); });
+
+        if (bookingOpt.isPresent()) {
+            EventBooking booking = bookingOpt.get();
+            boolean isOwner = currentUser != null && booking.getUserId().equals(currentUser.getId());
+            boolean hasPrivileges = isAdminOrWorker(currentUser);
+
+            if (isOwner || hasPrivileges) {
+                booking.setStatus("отменено");
+                eventBookingRepository.save(booking);
+            }
+        }
         return "redirect:/bookings";
     }
 
+    // ОТМЕНА КОМНАТЫ (ТОЛЬКО Админ/Работник)
     @PostMapping("/cancel/room/{id}")
-    public String cancelRoomBooking(@PathVariable Integer id) {
+    public String cancelRoomBooking(@PathVariable Integer id, @AuthenticationPrincipal CustomUserDetails currentUser) {
+        if (!isAdminOrWorker(currentUser)) {
+            // Посетителям запрещено отменять комнаты
+            return "redirect:/bookings?error=access_denied";
+        }
+
         Optional<RoomBooking> bookingOpt = roomBookingRepository.findById(id);
-        bookingOpt.ifPresent(b -> { b.setStatus("отменено"); roomBookingRepository.save(b); });
+        bookingOpt.ifPresent(b -> {
+            b.setStatus("отменено");
+            roomBookingRepository.save(b);
+        });
         return "redirect:/bookings";
     }
 
     @PostMapping("/update/room")
-    public String updateRoomBooking(@RequestParam Integer bookingId, @RequestParam Integer slotNumber, @RequestParam String startTime, @RequestParam String endTime, @RequestParam Integer bookingWeight) {
+    public String updateRoomBooking(@RequestParam Integer bookingId, @RequestParam Integer slotNumber, @RequestParam String startTime, @RequestParam String endTime, @RequestParam Integer bookingWeight, @AuthenticationPrincipal CustomUserDetails currentUser) {
+        if (!isAdminOrWorker(currentUser)) return "redirect:/bookings?error=access_denied";
+
         Optional<RoomBooking> bookingOpt = roomBookingRepository.findById(bookingId);
         if (bookingOpt.isPresent()) {
             RoomBooking booking = bookingOpt.get();
@@ -124,5 +143,18 @@ public class BookingController {
             roomBookingRepository.save(booking);
         }
         return "redirect:/bookings";
+    }
+
+    // Вспомогательные методы
+    private boolean isAdminOrWorker(Authentication auth) {
+        if (auth == null || auth.getAuthorities() == null) return false;
+        return auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_АДМИН") || a.getAuthority().equals("ROLE_РАБОТНИК"));
+    }
+
+    private boolean isAdminOrWorker(CustomUserDetails user) {
+        if (user == null) return false;
+        return user.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_АДМИН") || a.getAuthority().equals("ROLE_РАБОТНИК"));
     }
 }
