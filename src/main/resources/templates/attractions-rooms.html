@@ -16,7 +16,8 @@
     <div th:if="${param.error}" class="alert alert-danger">
         <span th:if="${param.error[0] == 'call_operator'}">Для бронирования залов необходимо позвонить оператору!</span>
         <span th:if="${param.error[0] == 'access_denied'}">Доступ запрещен! Только для администратора.</span>
-        <span th:unless="${param.error[0] == 'call_operator' or param.error[0] == 'access_denied'}" th:text="${param.error[0]}">Ошибка</span>
+        <span th:if="${param.error[0] == 'time_conflict'}"><strong>Ошибка бронирования:</strong> Выбранное время пересекается с уже существующей бронью на этот слот! Пожалуйста, выберите другое время.</span>
+        <span th:unless="${param.error[0] == 'call_operator' or param.error[0] == 'access_denied' or param.error[0] == 'time_conflict'}" th:text="${param.error[0]}">Ошибка</span>
     </div>
     <div th:if="${param.success}" class="alert alert-success">Действие выполнено успешно!</div>
 
@@ -42,10 +43,11 @@
         <div class="tab-pane fade show active" id="attractions" role="tabpanel" aria-labelledby="attractions-tab">
 
             <form class="row g-3 mb-4 align-items-end">
-                <input type="hidden" name="tab" value="attractions"> <div class="col-md-3">
-                <label class="form-label">Поиск</label>
-                <input type="text" name="search" class="form-control" th:value="${search}" placeholder="Название..."/>
-            </div>
+                <input type="hidden" name="tab" value="attractions">
+                <div class="col-md-3">
+                    <label class="form-label">Поиск</label>
+                    <input type="text" name="search" class="form-control" th:value="${search}" placeholder="Название..."/>
+                </div>
                 <div class="col-md-2">
                     <label class="form-label">Цена от</label>
                     <input type="number" name="priceFrom" step="0.01" class="form-control" th:value="${priceFrom}"/>
@@ -272,32 +274,22 @@
 </div>
 
 <script>
-    // Скрипт для активации нужной вкладки после редиректа
     const urlParams = new URLSearchParams(window.location.search);
     const activeTab = urlParams.get('tab');
 
     if (activeTab === 'rooms') {
         const roomTabButton = document.getElementById('rooms-tab');
         if (roomTabButton) {
-            // Деактивируем текущую
             const currentActive = document.querySelector('.nav-link.active');
             if(currentActive) currentActive.classList.remove('active');
-
-            // Активируем кнопку 'Залы'
             roomTabButton.classList.add('active');
         }
-
         const roomTabPane = document.getElementById('rooms');
         if (roomTabPane) {
-             // Скрываем текущую панель
             const currentPane = document.querySelector('.tab-pane.active');
             if(currentPane) currentPane.classList.remove('show', 'active');
-
-            // Показываем панель 'Залы'
             roomTabPane.classList.add('show', 'active');
         }
-
-        // Очистка URL
         const cleanUrl = window.location.href.split('&tab=rooms')[0].split('?tab=rooms')[0];
         window.history.replaceState(null, null, cleanUrl);
     }

@@ -32,20 +32,18 @@ public class AttractionRoomController {
                        @RequestParam(required = false) String search,
                        @RequestParam(required = false) BigDecimal priceFrom,
                        @RequestParam(required = false) BigDecimal priceTo,
-                       @RequestParam(required = false, defaultValue = "name_asc") String sort, // НОВОЕ
+                       @RequestParam(required = false, defaultValue = "name_asc") String sort,
                        Authentication auth) {
 
         List<Attraction> attractions = attractionRepository.findAll();
         List<Room> rooms = roomRepository.findAll();
 
-        // Фильтрация по поиску
         if (search != null && !search.trim().isEmpty()) {
             String lower = search.toLowerCase().trim();
             attractions = attractions.stream().filter(a -> a.getName().toLowerCase().contains(lower)).collect(Collectors.toList());
             rooms = rooms.stream().filter(r -> r.getName().toLowerCase().contains(lower)).collect(Collectors.toList());
         }
 
-        // Фильтрация по цене
         BigDecimal finalPriceFrom = priceFrom != null ? priceFrom : BigDecimal.ZERO;
         BigDecimal finalPriceTo = priceTo != null ? priceTo : new BigDecimal("999999.00");
 
@@ -112,30 +110,46 @@ public class AttractionRoomController {
 
         if (currentUser == null) return "redirect:/login";
 
+        // Проверяем права
         boolean hasPrivileges = isAdminOrWorker(currentUser.getAuthorities());
-
         if (!hasPrivileges) {
-            return "redirect:/attractions-rooms?error=call_operator";
+            return "redirect:/attractions-rooms?error=call_operator&tab=rooms";
         }
 
+        // Определяем клиента
         UserInfo client;
         if (clientPhone != null && !clientPhone.isEmpty()) {
             client = userInfoRepository.findByPhone(clientPhone).orElse(null);
-            if (client == null) return "redirect:/attractions-rooms?error=client_not_found";
+            if (client == null) return "redirect:/attractions-rooms?error=client_not_found&tab=rooms";
         } else {
             client = userInfoRepository.findById(currentUser.getId()).orElse(null);
         }
 
-        if (client == null) return "redirect:/attractions-rooms?error=client_not_found";
+        if (client == null) return "redirect:/attractions-rooms?error=client_not_found&tab=rooms";
 
+        // Проверяем комнату
         Optional<Room> roomOpt = roomRepository.findById(roomId);
-        if (roomOpt.isEmpty()) return "redirect:/attractions-rooms?error=room_not_found";
-
+        if (roomOpt.isEmpty()) return "redirect:/attractions-rooms?error=room_not_found&tab=rooms";
         Room room = roomOpt.get();
-        LocalDateTime startLdt = LocalDateTime.parse(startTime);
-        LocalDateTime endLdt = LocalDateTime.parse(endTime);
+
+        // Парсим время
+        LocalDateTime startLdt;
+        LocalDateTime endLdt;
+        try {
+            startLdt = LocalDateTime.parse(startTime);
+            endLdt = LocalDateTime.parse(endTime);
+        } catch (Exception e) {
+            return "redirect:/attractions-rooms?error=invalid_date_format&tab=rooms";
+        }
+
         long hours = ChronoUnit.HOURS.between(startLdt, endLdt);
-        if (hours <= 0) return "redirect:/attractions-rooms?error=invalid_time";
+        if (hours <= 0) return "redirect:/attractions-rooms?error=invalid_time&tab=rooms";
+
+        List<RoomBooking> overlaps = roomBookingRepository.findOverlappingBookings(roomId, slotNumber, startLdt, endLdt);
+        if (!overlaps.isEmpty()) {
+            return "redirect:/attractions-rooms?error=time_conflict&tab=rooms";
+        }
+        // -------------------------------------------
 
         BigDecimal price = room.getPricePerSlotHour().multiply(new BigDecimal(hours));
 
@@ -150,7 +164,8 @@ public class AttractionRoomController {
 
         roomBookingRepository.save(booking);
 
-        return "redirect:/attractions-rooms?success=booked_for_" + client.getSurname();
+        // Редирект обратно на страницу /attractions-rooms (GET запрос), а не остаемся на POST
+        return "redirect:/attractions-rooms?success=booked_for_" + client.getSurname() + "&tab=rooms";
     }
 
     @PostMapping("/attraction/save")
@@ -169,16 +184,16 @@ public class AttractionRoomController {
 
     @PostMapping("/room/save")
     public String saveRoom(@ModelAttribute Room room, Authentication auth) {
-        if (!isAdmin(auth)) return "redirect:/attractions-rooms?error=access_denied";
+        if (!isAdmin(auth)) return "redirect:/attractions-rooms?error=access_denied&tab=rooms";
         roomRepository.save(room);
-        return "redirect:/attractions-rooms";
+        return "redirect:/attractions-rooms?tab=rooms";
     }
 
     @PostMapping("/room/delete/{id}")
     public String deleteRoom(@PathVariable Integer id, Authentication auth) {
-        if (!isAdmin(auth)) return "redirect:/attractions-rooms?error=access_denied";
+        if (!isAdmin(auth)) return "redirect:/attractions-rooms?error=access_denied&tab=rooms";
         roomRepository.deleteById(id);
-        return "redirect:/attractions-rooms";
+        return "redirect:/attractions-rooms?tab=rooms";
     }
 
     private boolean isAdminOrWorker(Authentication auth) {

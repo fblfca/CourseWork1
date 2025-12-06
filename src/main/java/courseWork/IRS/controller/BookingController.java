@@ -64,13 +64,11 @@ public class BookingController {
             }
 
         } else {
-            // Для Посетителя: только его брони
             Integer userId = currentUser.getId();
             eventBookings = eventBookingRepository.findByUserId(userId);
             roomBookings = roomBookingRepository.findByUserId(userId);
         }
 
-        // ИЗМЕНЕНИЕ: Скрываем "отменено" И "завершено" из списка активных броней
         eventBookings = eventBookings.stream()
                 .filter(b -> !"отменено".equals(b.getStatus()) && !"завершено".equals(b.getStatus()))
                 .collect(Collectors.toList());
@@ -89,7 +87,6 @@ public class BookingController {
         return "bookings";
     }
 
-    // ОТМЕНА СОБЫТИЯ
     @PostMapping("/cancel/event/{id}")
     public String cancelEventBooking(@PathVariable Integer id, @AuthenticationPrincipal CustomUserDetails currentUser) {
         Optional<EventBooking> bookingOpt = eventBookingRepository.findById(id);
@@ -107,7 +104,6 @@ public class BookingController {
         return "redirect:/bookings";
     }
 
-    // НОВОЕ: ЗАВЕРШЕНИЕ СОБЫТИЯ (Только Админ/Работник)
     @PostMapping("/complete/event/{id}")
     public String completeEventBooking(@PathVariable Integer id, @AuthenticationPrincipal CustomUserDetails currentUser) {
         if (!isAdminOrWorker(currentUser)) return "redirect:/bookings?error=access_denied";
@@ -120,7 +116,6 @@ public class BookingController {
         return "redirect:/bookings";
     }
 
-    // ОТМЕНА КОМНАТЫ (ТОЛЬКО Админ/Работник)
     @PostMapping("/cancel/room/{id}")
     public String cancelRoomBooking(@PathVariable Integer id, @AuthenticationPrincipal CustomUserDetails currentUser) {
         if (!isAdminOrWorker(currentUser)) return "redirect:/bookings?error=access_denied";
@@ -133,7 +128,6 @@ public class BookingController {
         return "redirect:/bookings";
     }
 
-    // НОВОЕ: ЗАВЕРШЕНИЕ КОМНАТЫ (Только Админ/Работник)
     @PostMapping("/complete/room/{id}")
     public String completeRoomBooking(@PathVariable Integer id, @AuthenticationPrincipal CustomUserDetails currentUser) {
         if (!isAdminOrWorker(currentUser)) return "redirect:/bookings?error=access_denied";
