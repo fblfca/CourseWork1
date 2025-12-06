@@ -5,7 +5,7 @@ import courseWork.IRS.model.UserInfo;
 import courseWork.IRS.repository.RoleRepository;
 import courseWork.IRS.repository.UserInfoRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,48 +14,69 @@ import java.util.Optional;
 @Service
 public class UserService {
 
-    @Autowired
-    private RoleRepository roleRepository;
+    @Autowired private RoleRepository roleRepository;
+    @Autowired private UserInfoRepository userInfoRepository;
+    @Autowired private PasswordEncoder passwordEncoder;
 
-    @Autowired
-    private UserInfoRepository userInfoRepository;
-
-    @Autowired
-    private BCryptPasswordEncoder passwordEncoder;
-
-    @Transactional
-    public Role registerUser(String login, String rawPassword, String name, String surname, String phone) {
-        if (roleRepository.findByLogin(login).isPresent()) {
+    public void registerUser(String email, String password, String name, String surname, String phone) {
+        if (roleRepository.findByLogin(email).isPresent()) {
             throw new RuntimeException("Пользователь с таким email уже существует");
         }
 
         Role role = new Role();
-        role.setLogin(login);
-        role.setPasswordHash(passwordEncoder.encode(rawPassword));
-        role.setRole("пользователь");
+        role.setLogin(email);
+        role.setPasswordHash(passwordEncoder.encode(password));
+        role.setRole("ПОЛЬЗОВАТЕЛЬ");
+        role = roleRepository.save(role);
 
         UserInfo userInfo = new UserInfo();
+        userInfo.setId(role.getId());
         userInfo.setName(name);
         userInfo.setSurname(surname);
         userInfo.setPhone(phone);
-        userInfo.setRole(role);
-
-        role.setUserInfo(userInfo);
-        return roleRepository.save(role);
+        userInfoRepository.save(userInfo);
     }
 
-    public long getUserCount() {
-        return roleRepository.count();
-    }
-
-    /**
-     * Поиск полной информации о пользователе (UserInfo) по логину (email).
-     * @param login Логин пользователя (email).
-     * @return Объект UserInfo.
-     */
-    @Transactional(readOnly = true)
     public UserInfo findByLogin(String login) {
-        Optional<Role> role = roleRepository.findByLogin(login);
-        return role.map(Role::getUserInfo).orElse(null);
+        Optional<Role> roleOpt = roleRepository.findByLogin(login);
+        if (roleOpt.isEmpty()) return null;
+
+        Role role = roleOpt.get();
+        UserInfo userInfo = userInfoRepository.findById(role.getId()).orElse(new UserInfo());
+        userInfo.setId(role.getId());
+        userInfo.setRole(role);
+        return userInfo;
+    }
+
+    public boolean checkPassword(String login, String rawPassword) {
+        Optional<Role> roleOpt = roleRepository.findByLogin(login);
+        if (roleOpt.isEmpty()) return false;
+        return passwordEncoder.matches(rawPassword, roleOpt.get().getPasswordHash());
+    }
+
+    @Transactional
+    public void updatePersonalInfo(Integer userId, String name, String surname, String phone) {
+        UserInfo info = userInfoRepository.findById(userId).orElseThrow();
+        info.setName(name);
+        info.setSurname(surname);
+        info.setPhone(phone);
+        userInfoRepository.save(info);
+    }
+
+    @Transactional
+    public void updateEmail(Integer userId, String newEmail) {
+        if (roleRepository.findByLogin(newEmail).isPresent()) {
+            throw new RuntimeException("Email_zanyat");
+        }
+        Role role = roleRepository.findById(userId).orElseThrow();
+        role.setLogin(newEmail);
+        roleRepository.save(role);
+    }
+
+    @Transactional
+    public void updatePassword(Integer userId, String newPassword) {
+        Role role = roleRepository.findById(userId).orElseThrow();
+        role.setPasswordHash(passwordEncoder.encode(newPassword));
+        roleRepository.save(role);
     }
 }

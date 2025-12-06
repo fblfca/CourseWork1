@@ -38,12 +38,14 @@ public class AttractionRoomController {
         List<Attraction> attractions = attractionRepository.findAll();
         List<Room> rooms = roomRepository.findAll();
 
+        // Фильтрация по поисковому запросу
         if (search != null && !search.trim().isEmpty()) {
             String lower = search.toLowerCase().trim();
             attractions = attractions.stream().filter(a -> a.getName().toLowerCase().contains(lower)).collect(Collectors.toList());
             rooms = rooms.stream().filter(r -> r.getName().toLowerCase().contains(lower)).collect(Collectors.toList());
         }
 
+        // Фильтрация по цене
         BigDecimal finalPriceFrom = priceFrom != null ? priceFrom : BigDecimal.ZERO;
         BigDecimal finalPriceTo = priceTo != null ? priceTo : new BigDecimal("999999.00");
 
@@ -55,6 +57,7 @@ public class AttractionRoomController {
                 .filter(r -> r.getPricePerSlotHour() != null && r.getPricePerSlotHour().compareTo(finalPriceFrom) >= 0 && r.getPricePerSlotHour().compareTo(finalPriceTo) <= 0)
                 .collect(Collectors.toList());
 
+        // Сортировка
         applySorting(attractions, rooms, sort);
 
         model.addAttribute("attractions", attractions);
@@ -64,10 +67,12 @@ public class AttractionRoomController {
         model.addAttribute("priceTo", priceTo);
         model.addAttribute("sort", sort);
 
+        // Права доступа
         boolean isAdmin = isAdmin(auth);
         model.addAttribute("isAdmin", isAdmin);
         model.addAttribute("isAdminOrWorker", isAdminOrWorker(auth));
 
+        // Объекты для форм добавления (только админ)
         if (isAdmin) {
             model.addAttribute("newAttraction", new Attraction());
             model.addAttribute("newRoom", new Room());
@@ -108,15 +113,17 @@ public class AttractionRoomController {
             @RequestParam Integer peopleCount,
             @RequestParam(required = false) String clientPhone) {
 
+        // Проверка авторизации
         if (currentUser == null) return "redirect:/login";
 
-        // Проверяем права
+        // Проверка прав (админ/работник или клиент)
         boolean hasPrivileges = isAdminOrWorker(currentUser.getAuthorities());
         if (!hasPrivileges) {
+            // Обычный пользователь должен звонить оператору для брони зала
             return "redirect:/attractions-rooms?error=call_operator&tab=rooms";
         }
 
-        // Определяем клиента
+        // Определение клиента (для кого бронируем)
         UserInfo client;
         if (clientPhone != null && !clientPhone.isEmpty()) {
             client = userInfoRepository.findByPhone(clientPhone).orElse(null);
@@ -127,12 +134,12 @@ public class AttractionRoomController {
 
         if (client == null) return "redirect:/attractions-rooms?error=client_not_found&tab=rooms";
 
-        // Проверяем комнату
+        // Поиск комнаты
         Optional<Room> roomOpt = roomRepository.findById(roomId);
         if (roomOpt.isEmpty()) return "redirect:/attractions-rooms?error=room_not_found&tab=rooms";
         Room room = roomOpt.get();
 
-        // Парсим время
+        // Парсинг времени
         LocalDateTime startLdt;
         LocalDateTime endLdt;
         try {
@@ -142,17 +149,20 @@ public class AttractionRoomController {
             return "redirect:/attractions-rooms?error=invalid_date_format&tab=rooms";
         }
 
+        // Проверка валидности интервала
         long hours = ChronoUnit.HOURS.between(startLdt, endLdt);
         if (hours <= 0) return "redirect:/attractions-rooms?error=invalid_time&tab=rooms";
 
+        // Проверка на пересечение бронирований
         List<RoomBooking> overlaps = roomBookingRepository.findOverlappingBookings(roomId, slotNumber, startLdt, endLdt);
         if (!overlaps.isEmpty()) {
             return "redirect:/attractions-rooms?error=time_conflict&tab=rooms";
         }
-        // -------------------------------------------
 
+        // Расчет цены
         BigDecimal price = room.getPricePerSlotHour().multiply(new BigDecimal(hours));
 
+        // Создание брони
         RoomBooking booking = new RoomBooking();
         booking.setUserId(client.getId());
         booking.setRoomId(roomId);
@@ -162,11 +172,17 @@ public class AttractionRoomController {
         booking.setBookingWeight(peopleCount);
         booking.setPrice(price);
 
-        roomBookingRepository.save(booking);
+        try {
+            roomBookingRepository.save(booking);
+        } catch (Exception e) {
+            return "redirect:/attractions-rooms?error=save_error&tab=rooms";
+        }
 
-        // Редирект обратно на страницу /attractions-rooms (GET запрос), а не остаемся на POST
-        return "redirect:/attractions-rooms?success=booked_for_" + client.getSurname() + "&tab=rooms";
+        String surname = (client.getSurname() != null) ? client.getSurname() : "Клиент";
+        return "redirect:/attractions-rooms?success=booked_for_" + surname + "&tab=rooms";
     }
+
+    // Методы управления (Только Админ)
 
     @PostMapping("/attraction/save")
     public String saveAttraction(@ModelAttribute Attraction attraction, Authentication auth) {
@@ -196,6 +212,7 @@ public class AttractionRoomController {
         return "redirect:/attractions-rooms?tab=rooms";
     }
 
+    // Вспомогательные методы проверки прав
     private boolean isAdminOrWorker(Authentication auth) {
         if (auth == null || auth.getAuthorities() == null) return false;
         return auth.getAuthorities().stream()
