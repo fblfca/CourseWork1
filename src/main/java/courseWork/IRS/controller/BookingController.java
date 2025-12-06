@@ -44,7 +44,6 @@ public class BookingController {
         List<RoomBooking> roomBookings;
 
         if (isAdminOrWorker) {
-            // Для Админа/Работника: показываем всё с возможностью фильтрации
             eventBookings = eventBookingRepository.findAll();
             roomBookings = roomBookingRepository.findAll();
 
@@ -85,7 +84,6 @@ public class BookingController {
         return "bookings";
     }
 
-    // ОТМЕНА СОБЫТИЯ (Посетитель может отменить свое, Админ - любое)
     @PostMapping("/cancel/event/{id}")
     public String cancelEventBooking(@PathVariable Integer id, @AuthenticationPrincipal CustomUserDetails currentUser) {
         Optional<EventBooking> bookingOpt = eventBookingRepository.findById(id);

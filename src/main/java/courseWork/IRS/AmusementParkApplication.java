@@ -1,7 +1,7 @@
 package courseWork.IRS;
 
 import courseWork.IRS.model.Role;
-import courseWork.IRS.model.UserInfo; // ДОБАВЛЕНО
+import courseWork.IRS.model.UserInfo;
 import courseWork.IRS.repository.RoleRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;

@@ -19,7 +19,6 @@ public class AuthController {
     @Autowired
     private UserService userService;
 
-    // ЭТА СТРОКА РЕШАЕТ ВСЁ!
     @GetMapping("/")
     public String root() {
         return "redirect:/login";

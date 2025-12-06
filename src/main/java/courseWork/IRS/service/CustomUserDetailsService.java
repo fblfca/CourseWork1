@@ -19,7 +19,6 @@ public class CustomUserDetailsService implements UserDetailsService {
         Role role = roleRepository.findByLogin(login)
                 .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден: " + login));
 
-        // ИЗМЕНЕНИЕ: Используем CustomUserDetails для сохранения ID
         return new CustomUserDetails(role);
     }
 }

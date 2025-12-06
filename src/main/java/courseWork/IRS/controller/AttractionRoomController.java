@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -31,17 +32,20 @@ public class AttractionRoomController {
                        @RequestParam(required = false) String search,
                        @RequestParam(required = false) BigDecimal priceFrom,
                        @RequestParam(required = false) BigDecimal priceTo,
+                       @RequestParam(required = false, defaultValue = "name_asc") String sort, // НОВОЕ
                        Authentication auth) {
 
         List<Attraction> attractions = attractionRepository.findAll();
         List<Room> rooms = roomRepository.findAll();
 
+        // Фильтрация по поиску
         if (search != null && !search.trim().isEmpty()) {
             String lower = search.toLowerCase().trim();
             attractions = attractions.stream().filter(a -> a.getName().toLowerCase().contains(lower)).collect(Collectors.toList());
             rooms = rooms.stream().filter(r -> r.getName().toLowerCase().contains(lower)).collect(Collectors.toList());
         }
 
+        // Фильтрация по цене
         BigDecimal finalPriceFrom = priceFrom != null ? priceFrom : BigDecimal.ZERO;
         BigDecimal finalPriceTo = priceTo != null ? priceTo : new BigDecimal("999999.00");
 
@@ -53,24 +57,47 @@ public class AttractionRoomController {
                 .filter(r -> r.getPricePerSlotHour() != null && r.getPricePerSlotHour().compareTo(finalPriceFrom) >= 0 && r.getPricePerSlotHour().compareTo(finalPriceTo) <= 0)
                 .collect(Collectors.toList());
 
+        applySorting(attractions, rooms, sort);
+
         model.addAttribute("attractions", attractions);
         model.addAttribute("rooms", rooms);
         model.addAttribute("search", search);
         model.addAttribute("priceFrom", priceFrom);
         model.addAttribute("priceTo", priceTo);
+        model.addAttribute("sort", sort);
 
-        // ФЛАГИ ПРАВ
         boolean isAdmin = isAdmin(auth);
         model.addAttribute("isAdmin", isAdmin);
         model.addAttribute("isAdminOrWorker", isAdminOrWorker(auth));
 
-        // Для модальных окон добавления
         if (isAdmin) {
             model.addAttribute("newAttraction", new Attraction());
             model.addAttribute("newRoom", new Room());
         }
 
         return "attractions-rooms";
+    }
+
+    private void applySorting(List<Attraction> attractions, List<Room> rooms, String sort) {
+        switch (sort) {
+            case "price_asc":
+                attractions.sort(Comparator.comparing(Attraction::getPrice));
+                rooms.sort(Comparator.comparing(Room::getPricePerSlotHour));
+                break;
+            case "price_desc":
+                attractions.sort(Comparator.comparing(Attraction::getPrice).reversed());
+                rooms.sort(Comparator.comparing(Room::getPricePerSlotHour).reversed());
+                break;
+            case "name_desc":
+                attractions.sort(Comparator.comparing(Attraction::getName, String.CASE_INSENSITIVE_ORDER).reversed());
+                rooms.sort(Comparator.comparing(Room::getName, String.CASE_INSENSITIVE_ORDER).reversed());
+                break;
+            case "name_asc":
+            default:
+                attractions.sort(Comparator.comparing(Attraction::getName, String.CASE_INSENSITIVE_ORDER));
+                rooms.sort(Comparator.comparing(Room::getName, String.CASE_INSENSITIVE_ORDER));
+                break;
+        }
     }
 
     @PostMapping("/book-room")
@@ -87,13 +114,7 @@ public class AttractionRoomController {
 
         boolean hasPrivileges = isAdminOrWorker(currentUser.getAuthorities());
 
-        // Посетителям запрещено дергать этот метод напрямую (хотя кнопка скрыта, проверка не помешает)
-        // Но если вы хотите разрешить им бронировать "через оператора" в будущем, логику можно оставить.
-        // Сейчас по ТЗ: посетитель звонит оператору -> оператор (worker) бронирует.
-        // Значит, этот метод вызывают только Админ или Работник.
-
         if (!hasPrivileges) {
-            // Если вдруг посетитель отправил POST запрос вручную
             return "redirect:/attractions-rooms?error=call_operator";
         }
 
@@ -102,7 +123,6 @@ public class AttractionRoomController {
             client = userInfoRepository.findByPhone(clientPhone).orElse(null);
             if (client == null) return "redirect:/attractions-rooms?error=client_not_found";
         } else {
-            // Если работник бронирует на себя (редкий кейс, но возможный)
             client = userInfoRepository.findById(currentUser.getId()).orElse(null);
         }
 
@@ -133,7 +153,6 @@ public class AttractionRoomController {
         return "redirect:/attractions-rooms?success=booked_for_" + client.getSurname();
     }
 
-    // --- МЕТОДЫ УПРАВЛЕНИЯ ---
     @PostMapping("/attraction/save")
     public String saveAttraction(@ModelAttribute Attraction attraction, Authentication auth) {
         if (!isAdmin(auth)) return "redirect:/attractions-rooms?error=access_denied";

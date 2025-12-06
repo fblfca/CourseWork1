@@ -11,7 +11,6 @@ public class GlobalControllerAdvice {
     @Autowired
     private RoleRepository roleRepository;
 
-    // Этот метод делает переменную userCount доступной во всех HTML-шаблонах
     @ModelAttribute("userCount")
     public long populateUserCount() {
         return roleRepository.count();
