@@ -24,157 +24,204 @@
         <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addAttractionModal">
             <i class="bi bi-plus-lg"></i> Добавить аттракцион
         </button>
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addRoomModal">
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addRoomModal" id="addRoomBtn">
             <i class="bi bi-plus-lg"></i> Добавить зал
         </button>
     </div>
 
-    <form class="row g-3 mb-5 align-items-end">
-        <div class="col-md-3">
-            <label class="form-label">Поиск</label>
-            <input type="text" name="search" class="form-control" th:value="${search}" placeholder="Название..."/>
-        </div>
-        <div class="col-md-2">
-            <label class="form-label">Цена от</label>
-            <input type="number" name="priceFrom" step="0.01" class="form-control" th:value="${priceFrom}"/>
-        </div>
-        <div class="col-md-2">
-            <label class="form-label">Цена до</label>
-            <input type="number" name="priceTo" step="0.01" class="form-control" th:value="${priceTo}"/>
-        </div>
-        <div class="col-md-3">
-            <label class="form-label">Сортировка</label>
-            <select name="sort" class="form-select">
-                <option value="name_asc" th:selected="${sort == 'name_asc'}">Название (А-Я)</option>
-                <option value="name_desc" th:selected="${sort == 'name_desc'}">Название (Я-А)</option>
-                <option value="price_asc" th:selected="${sort == 'price_asc'}">Цена (по возрастанию)</option>
-                <option value="price_desc" th:selected="${sort == 'price_desc'}">Цена (по убыванию)</option>
-            </select>
-        </div>
-        <div class="col-auto">
-            <button type="submit" class="btn btn-secondary">Найти</button>
-        </div>
-    </form>
+    <ul class="nav nav-tabs mb-3" id="myTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="attractions-tab" data-bs-toggle="tab" data-bs-target="#attractions" type="button" role="tab" aria-controls="attractions" aria-selected="true">Аттракционы</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="rooms-tab" data-bs-toggle="tab" data-bs-target="#rooms" type="button" role="tab" aria-controls="rooms" aria-selected="false">Залы и комнаты</button>
+        </li>
+    </ul>
 
-    <h3 class="text-success border-bottom pb-2">Аттракционы</h3>
-    <div class="row row-cols-1 row-cols-md-3 g-4 mb-5">
-        <div class="col" th:each="attr : ${attractions}">
-            <div class="card h-100 shadow-sm border-success">
-                <div class="card-body d-flex flex-column">
-                    <h5 class="card-title text-success" th:text="${attr.name}">Название</h5>
-                    <p class="card-text small" th:text="${attr.description}">Описание</p>
-                    <ul class="list-unstyled mb-3">
-                        <li><strong>Цена:</strong> <span th:text="${attr.price}"></span> руб.</li>
-                        <li><strong>Вместимость:</strong> <span th:text="${attr.capacity}"></span> чел.</li>
-                    </ul>
-                    <div class="mt-auto text-center text-muted fw-bold border-top pt-2">
-                        <i class="bi bi-people-fill"></i> Живая очередь
-                    </div>
-                </div>
-                <div class="card-footer bg-transparent border-top-0 d-flex gap-2" th:if="${isAdmin}">
-                    <button class="btn btn-sm btn-outline-warning w-100" data-bs-toggle="modal" th:data-bs-target="'#editAttractionModal' + ${attr.id}"><i class="bi bi-pencil"></i></button>
-                    <form th:action="@{/attractions-rooms/attraction/delete/{id}(id=${attr.id})}" method="post" class="w-100">
-                        <button class="btn btn-sm btn-outline-danger w-100" onclick="return confirm('Удалить?')"><i class="bi bi-trash"></i></button>
-                    </form>
-                </div>
+    <div class="tab-content" id="myTabContent">
+        <div class="tab-pane fade show active" id="attractions" role="tabpanel" aria-labelledby="attractions-tab">
+
+            <form class="row g-3 mb-4 align-items-end">
+                <input type="hidden" name="tab" value="attractions"> <div class="col-md-3">
+                <label class="form-label">Поиск</label>
+                <input type="text" name="search" class="form-control" th:value="${search}" placeholder="Название..."/>
             </div>
+                <div class="col-md-2">
+                    <label class="form-label">Цена от</label>
+                    <input type="number" name="priceFrom" step="0.01" class="form-control" th:value="${priceFrom}"/>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Цена до</label>
+                    <input type="number" name="priceTo" step="0.01" class="form-control" th:value="${priceTo}"/>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Сортировка</label>
+                    <select name="sort" class="form-select">
+                        <option value="name_asc" th:selected="${sort == 'name_asc'}">Название (А-Я)</option>
+                        <option value="name_desc" th:selected="${sort == 'name_desc'}">Название (Я-А)</option>
+                        <option value="price_asc" th:selected="${sort == 'price_asc'}">Цена (по возрастанию)</option>
+                        <option value="price_desc" th:selected="${sort == 'price_desc'}">Цена (по убыванию)</option>
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-secondary">Найти</button>
+                </div>
+            </form>
 
-            <div th:if="${isAdmin}" class="modal fade" th:id="'editAttractionModal' + ${attr.id}" tabindex="-1">
-                <div class="modal-dialog">
-                    <form class="modal-content" th:action="@{/attractions-rooms/attraction/save}" method="post">
-                        <div class="modal-header"><h5 class="modal-title">Редактировать</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-                        <div class="modal-body">
-                            <input type="hidden" name="id" th:value="${attr.id}">
-                            <input type="text" name="name" class="form-control mb-2" th:value="${attr.name}" required>
-                            <input type="number" step="0.01" name="price" class="form-control mb-2" th:value="${attr.price}" required>
-                            <input type="number" name="capacity" class="form-control mb-2" th:value="${attr.capacity}" required>
-                            <input type="time" name="startTime" class="form-control mb-2" th:value="${attr.startTime}" required>
-                            <input type="time" name="endTime" class="form-control mb-2" th:value="${attr.endTime}" required>
-                            <input type="number" name="location" class="form-control mb-2" th:value="${attr.location}" required>
-                            <textarea name="description" class="form-control" th:text="${attr.description}"></textarea>
+            <div class="row row-cols-1 row-cols-md-3 g-4 mb-5">
+                <div class="col" th:each="attr : ${attractions}">
+                    <div class="card h-100 shadow-sm border-success">
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title text-success" th:text="${attr.name}">Название</h5>
+                            <p class="card-text small" th:text="${attr.description}">Описание</p>
+                            <ul class="list-unstyled mb-3">
+                                <li><strong>Цена:</strong> <span th:text="${attr.price}"></span> руб.</li>
+                                <li><strong>Вместимость:</strong> <span th:text="${attr.capacity}"></span> чел.</li>
+                            </ul>
+                            <div class="mt-auto text-center text-muted fw-bold border-top pt-2">
+                                <i class="bi bi-people-fill"></i> Живая очередь
+                            </div>
                         </div>
-                        <div class="modal-footer"><button type="submit" class="btn btn-success">Сохранить</button></div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
+                        <div class="card-footer bg-transparent border-top-0 d-flex gap-2" th:if="${isAdmin}">
+                            <button class="btn btn-sm btn-outline-warning w-100" data-bs-toggle="modal" th:data-bs-target="'#editAttractionModal' + ${attr.id}"><i class="bi bi-pencil"></i></button>
+                            <form th:action="@{/attractions-rooms/attraction/delete/{id}(id=${attr.id})}" method="post" class="w-100">
+                                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+                                <button class="btn btn-sm btn-outline-danger w-100" onclick="return confirm('Удалить?')"><i class="bi bi-trash"></i></button>
+                            </form>
+                        </div>
+                    </div>
 
-    <h3 class="text-primary border-bottom pb-2">Залы и комнаты</h3>
-    <div class="row row-cols-1 row-cols-md-3 g-4">
-        <div class="col" th:each="room : ${rooms}">
-            <div class="card h-100 shadow-sm border-primary">
-                <div class="card-body d-flex flex-column">
-                    <h5 class="card-title text-primary" th:text="${room.name}">Название</h5>
-                    <span class="badge bg-secondary mb-2" th:text="${room.status}">Статус</span>
-                    <p class="card-text small" th:text="${room.description}">Описание</p>
-                    <ul class="list-unstyled mb-3">
-                        <li><strong>Цена/час:</strong> <span th:text="${room.pricePerSlotHour}"></span> руб.</li>
-                    </ul>
-
-                    <div class="mt-auto">
-                        <button th:if="${isAdminOrWorker}"
-                                class="btn btn-primary w-100"
-                                data-bs-toggle="modal"
-                                th:data-bs-target="'#bookRoomModal' + ${room.id}">
-                            Забронировать
-                        </button>
-                        <div th:unless="${isAdminOrWorker}" class="alert alert-info text-center p-2 mb-0" style="font-size: 0.9em;">
-                            <i class="bi bi-telephone-fill"></i> Для бронирования позвоните оператору
+                    <div th:if="${isAdmin}" class="modal fade" th:id="'editAttractionModal' + ${attr.id}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <form class="modal-content" th:action="@{/attractions-rooms/attraction/save}" method="post">
+                                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+                                <div class="modal-header"><h5 class="modal-title">Редактировать</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                                <div class="modal-body">
+                                    <input type="hidden" name="id" th:value="${attr.id}">
+                                    <input type="text" name="name" class="form-control mb-2" th:value="${attr.name}" required>
+                                    <input type="number" step="0.01" name="price" class="form-control mb-2" th:value="${attr.price}" required>
+                                    <input type="number" name="capacity" class="form-control mb-2" th:value="${attr.capacity}" required>
+                                    <input type="time" name="startTime" class="form-control mb-2" th:value="${attr.startTime}" required>
+                                    <input type="time" name="endTime" class="form-control mb-2" th:value="${attr.endTime}" required>
+                                    <input type="number" name="location" class="form-control mb-2" th:value="${attr.location}" required>
+                                    <textarea name="description" class="form-control" th:text="${attr.description}"></textarea>
+                                </div>
+                                <div class="modal-footer"><button type="submit" class="btn btn-success">Сохранить</button></div>
+                            </form>
                         </div>
                     </div>
                 </div>
-
-                <div class="card-footer bg-transparent border-top-0 d-flex gap-2" th:if="${isAdmin}">
-                    <button class="btn btn-sm btn-outline-warning w-100" data-bs-toggle="modal" th:data-bs-target="'#editRoomModal' + ${room.id}"><i class="bi bi-pencil"></i></button>
-                    <form th:action="@{/attractions-rooms/room/delete/{id}(id=${room.id})}" method="post" class="w-100">
-                        <button class="btn btn-sm btn-outline-danger w-100" onclick="return confirm('Удалить?')"><i class="bi bi-trash"></i></button>
-                    </form>
-                </div>
             </div>
+        </div>
 
-            <div th:if="${isAdminOrWorker}" class="modal fade" th:id="'bookRoomModal' + ${room.id}" tabindex="-1">
-                <div class="modal-dialog">
-                    <form class="modal-content" action="/attractions-rooms/book-room" method="post">
-                        <div class="modal-header"><h5 class="modal-title">Бронирование зала</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-                        <div class="modal-body">
-                            <input type="hidden" name="roomId" th:value="${room.id}">
-                            <label>Телефон клиента</label>
-                            <input type="text" name="clientPhone" class="form-control mb-2" required>
-                            <label>Слот</label>
-                            <input type="number" name="slotNumber" class="form-control mb-2" min="1" th:max="${room.slotsTotal}" required>
-                            <label>Начало</label>
-                            <input type="datetime-local" name="startTime" class="form-control mb-2" required>
-                            <label>Конец</label>
-                            <input type="datetime-local" name="endTime" class="form-control mb-2" required>
-                            <label>Человек</label>
-                            <input type="number" name="peopleCount" class="form-control mb-2" required>
-                        </div>
-                        <div class="modal-footer"><button type="submit" class="btn btn-primary">Подтвердить</button></div>
-                    </form>
+        <div class="tab-pane fade" id="rooms" role="tabpanel" aria-labelledby="rooms-tab">
+            <form class="row g-3 mb-4 align-items-end">
+                <input type="hidden" name="tab" value="rooms">
+                <div class="col-md-3">
+                    <label class="form-label">Поиск</label>
+                    <input type="text" name="search" class="form-control" th:value="${search}" placeholder="Название..."/>
                 </div>
-            </div>
+                <div class="col-md-2">
+                    <label class="form-label">Цена от</label>
+                    <input type="number" name="priceFrom" step="0.01" class="form-control" th:value="${priceFrom}"/>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Цена до</label>
+                    <input type="number" name="priceTo" step="0.01" class="form-control" th:value="${priceTo}"/>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Сортировка</label>
+                    <select name="sort" class="form-select">
+                        <option value="name_asc" th:selected="${sort == 'name_asc'}">Название (А-Я)</option>
+                        <option value="name_desc" th:selected="${sort == 'name_desc'}">Название (Я-А)</option>
+                        <option value="price_asc" th:selected="${sort == 'price_asc'}">Цена (по возрастанию)</option>
+                        <option value="price_desc" th:selected="${sort == 'price_desc'}">Цена (по убыванию)</option>
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-secondary">Найти</button>
+                </div>
+            </form>
 
-            <div th:if="${isAdmin}" class="modal fade" th:id="'editRoomModal' + ${room.id}" tabindex="-1">
-                <div class="modal-dialog">
-                    <form class="modal-content" th:action="@{/attractions-rooms/room/save}" method="post">
-                        <div class="modal-header"><h5 class="modal-title">Редактировать зал</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-                        <div class="modal-body">
-                            <input type="hidden" name="id" th:value="${room.id}">
-                            <input type="text" name="name" class="form-control mb-2" th:value="${room.name}" required>
-                            <input type="number" step="0.01" name="pricePerSlotHour" class="form-control mb-2" th:value="${room.pricePerSlotHour}" required>
-                            <input type="number" name="slotsTotal" class="form-control mb-2" th:value="${room.slotsTotal}" required>
-                            <input type="time" name="startTime" class="form-control mb-2" th:value="${room.startTime}" required>
-                            <input type="time" name="endTime" class="form-control mb-2" th:value="${room.endTime}" required>
-                            <input type="number" name="location" class="form-control mb-2" th:value="${room.location}" required>
-                            <textarea name="description" class="form-control mb-2" th:text="${room.description}"></textarea>
-                            <select name="status" class="form-control">
-                                <option value="открыто" th:selected="${room.status == 'открыто'}">открыто</option>
-                                <option value="закрыто" th:selected="${room.status == 'закрыто'}">закрыто</option>
-                            </select>
+            <div class="row row-cols-1 row-cols-md-3 g-4">
+                <div class="col" th:each="room : ${rooms}">
+                    <div class="card h-100 shadow-sm border-primary">
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title text-primary" th:text="${room.name}">Название</h5>
+                            <span class="badge bg-secondary mb-2" th:text="${room.status}">Статус</span>
+                            <p class="card-text small" th:text="${room.description}">Описание</p>
+                            <ul class="list-unstyled mb-3">
+                                <li><strong>Цена/час:</strong> <span th:text="${room.pricePerSlotHour}"></span> руб.</li>
+                            </ul>
+
+                            <div class="mt-auto">
+                                <button th:if="${isAdminOrWorker}"
+                                        class="btn btn-primary w-100"
+                                        data-bs-toggle="modal"
+                                        th:data-bs-target="'#bookRoomModal' + ${room.id}">
+                                    Забронировать
+                                </button>
+                                <div th:unless="${isAdminOrWorker}" class="alert alert-info text-center p-2 mb-0" style="font-size: 0.9em;">
+                                    <i class="bi bi-telephone-fill"></i> Для бронирования позвоните оператору
+                                </div>
+                            </div>
                         </div>
-                        <div class="modal-footer"><button type="submit" class="btn btn-primary">Сохранить</button></div>
-                    </form>
+
+                        <div class="card-footer bg-transparent border-top-0 d-flex gap-2" th:if="${isAdmin}">
+                            <button class="btn btn-sm btn-outline-warning w-100" data-bs-toggle="modal" th:data-bs-target="'#editRoomModal' + ${room.id}"><i class="bi bi-pencil"></i></button>
+                            <form th:action="@{/attractions-rooms/room/delete/{id}(id=${room.id})}" method="post" class="w-100">
+                                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+                                <button class="btn btn-sm btn-outline-danger w-100" onclick="return confirm('Удалить?')"><i class="bi bi-trash"></i></button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div th:if="${isAdminOrWorker}" class="modal fade" th:id="'bookRoomModal' + ${room.id}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <form class="modal-content" action="/attractions-rooms/book-room" method="post">
+                                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+                                <div class="modal-header"><h5 class="modal-title">Бронирование зала</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                                <div class="modal-body">
+                                    <input type="hidden" name="roomId" th:value="${room.id}">
+                                    <label>Телефон клиента</label>
+                                    <input type="text" name="clientPhone" class="form-control mb-2" required>
+                                    <label>Слот</label>
+                                    <input type="number" name="slotNumber" class="form-control mb-2" min="1" th:max="${room.slotsTotal}" required>
+                                    <label>Начало</label>
+                                    <input type="datetime-local" name="startTime" class="form-control mb-2" required>
+                                    <label>Конец</label>
+                                    <input type="datetime-local" name="endTime" class="form-control mb-2" required>
+                                    <label>Человек</label>
+                                    <input type="number" name="peopleCount" class="form-control mb-2" required>
+                                </div>
+                                <div class="modal-footer"><button type="submit" class="btn btn-primary">Подтвердить</button></div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div th:if="${isAdmin}" class="modal fade" th:id="'editRoomModal' + ${room.id}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <form class="modal-content" th:action="@{/attractions-rooms/room/save}" method="post">
+                                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+                                <div class="modal-header"><h5 class="modal-title">Редактировать зал</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                                <div class="modal-body">
+                                    <input type="hidden" name="id" th:value="${room.id}">
+                                    <input type="text" name="name" class="form-control mb-2" th:value="${room.name}" required>
+                                    <input type="number" step="0.01" name="pricePerSlotHour" class="form-control mb-2" th:value="${room.pricePerSlotHour}" required>
+                                    <input type="number" name="slotsTotal" class="form-control mb-2" th:value="${room.slotsTotal}" required>
+                                    <input type="time" name="startTime" class="form-control mb-2" th:value="${room.startTime}" required>
+                                    <input type="time" name="endTime" class="form-control mb-2" th:value="${room.endTime}" required>
+                                    <input type="number" name="location" class="form-control mb-2" th:value="${room.location}" required>
+                                    <textarea name="description" class="form-control mb-2" th:text="${room.description}"></textarea>
+                                    <select name="status" class="form-control">
+                                        <option value="открыто" th:selected="${room.status == 'открыто'}">открыто</option>
+                                        <option value="закрыто" th:selected="${room.status == 'закрыто'}">закрыто</option>
+                                    </select>
+                                </div>
+                                <div class="modal-footer"><button type="submit" class="btn btn-primary">Сохранить</button></div>
+                            </form>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -184,6 +231,7 @@
         <div class="modal fade" id="addAttractionModal" tabindex="-1">
             <div class="modal-dialog">
                 <form class="modal-content" th:action="@{/attractions-rooms/attraction/save}" th:object="${newAttraction}" method="post">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
                     <div class="modal-header"><h5 class="modal-title">Новый аттракцион</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
                     <div class="modal-body">
                         <input type="text" th:field="*{name}" class="form-control mb-2" placeholder="Название" required>
@@ -201,6 +249,7 @@
         <div class="modal fade" id="addRoomModal" tabindex="-1">
             <div class="modal-dialog">
                 <form class="modal-content" th:action="@{/attractions-rooms/room/save}" th:object="${newRoom}" method="post">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
                     <div class="modal-header"><h5 class="modal-title">Новый зал</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
                     <div class="modal-body">
                         <input type="text" th:field="*{name}" class="form-control mb-2" placeholder="Название" required>
@@ -221,6 +270,39 @@
         </div>
     </div>
 </div>
+
+<script>
+    // Скрипт для активации нужной вкладки после редиректа
+    const urlParams = new URLSearchParams(window.location.search);
+    const activeTab = urlParams.get('tab');
+
+    if (activeTab === 'rooms') {
+        const roomTabButton = document.getElementById('rooms-tab');
+        if (roomTabButton) {
+            // Деактивируем текущую
+            const currentActive = document.querySelector('.nav-link.active');
+            if(currentActive) currentActive.classList.remove('active');
+
+            // Активируем кнопку 'Залы'
+            roomTabButton.classList.add('active');
+        }
+
+        const roomTabPane = document.getElementById('rooms');
+        if (roomTabPane) {
+             // Скрываем текущую панель
+            const currentPane = document.querySelector('.tab-pane.active');
+            if(currentPane) currentPane.classList.remove('show', 'active');
+
+            // Показываем панель 'Залы'
+            roomTabPane.classList.add('show', 'active');
+        }
+
+        // Очистка URL
+        const cleanUrl = window.location.href.split('&tab=rooms')[0].split('?tab=rooms')[0];
+        window.history.replaceState(null, null, cleanUrl);
+    }
+</script>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

@@ -44,6 +44,7 @@ public class BookingController {
         List<RoomBooking> roomBookings;
 
         if (isAdminOrWorker) {
+            // Для Админа/Работника: показываем всё с возможностью фильтрации
             eventBookings = eventBookingRepository.findAll();
             roomBookings = roomBookingRepository.findAll();
 
@@ -69,9 +70,13 @@ public class BookingController {
             roomBookings = roomBookingRepository.findByUserId(userId);
         }
 
-        // Скрываем отмененные записи из списка (чтобы не захламлять)
-        eventBookings = eventBookings.stream().filter(b -> !"отменено".equals(b.getStatus())).collect(Collectors.toList());
-        roomBookings = roomBookings.stream().filter(b -> !"отменено".equals(b.getStatus())).collect(Collectors.toList());
+        // ИЗМЕНЕНИЕ: Скрываем "отменено" И "завершено" из списка активных броней
+        eventBookings = eventBookings.stream()
+                .filter(b -> !"отменено".equals(b.getStatus()) && !"завершено".equals(b.getStatus()))
+                .collect(Collectors.toList());
+        roomBookings = roomBookings.stream()
+                .filter(b -> !"отменено".equals(b.getStatus()) && !"завершено".equals(b.getStatus()))
+                .collect(Collectors.toList());
 
         model.addAttribute("eventBookings", eventBookings);
         model.addAttribute("roomBookings", roomBookings);
@@ -84,6 +89,7 @@ public class BookingController {
         return "bookings";
     }
 
+    // ОТМЕНА СОБЫТИЯ
     @PostMapping("/cancel/event/{id}")
     public String cancelEventBooking(@PathVariable Integer id, @AuthenticationPrincipal CustomUserDetails currentUser) {
         Optional<EventBooking> bookingOpt = eventBookingRepository.findById(id);
@@ -101,17 +107,40 @@ public class BookingController {
         return "redirect:/bookings";
     }
 
+    // НОВОЕ: ЗАВЕРШЕНИЕ СОБЫТИЯ (Только Админ/Работник)
+    @PostMapping("/complete/event/{id}")
+    public String completeEventBooking(@PathVariable Integer id, @AuthenticationPrincipal CustomUserDetails currentUser) {
+        if (!isAdminOrWorker(currentUser)) return "redirect:/bookings?error=access_denied";
+
+        Optional<EventBooking> bookingOpt = eventBookingRepository.findById(id);
+        bookingOpt.ifPresent(b -> {
+            b.setStatus("завершено");
+            eventBookingRepository.save(b);
+        });
+        return "redirect:/bookings";
+    }
+
     // ОТМЕНА КОМНАТЫ (ТОЛЬКО Админ/Работник)
     @PostMapping("/cancel/room/{id}")
     public String cancelRoomBooking(@PathVariable Integer id, @AuthenticationPrincipal CustomUserDetails currentUser) {
-        if (!isAdminOrWorker(currentUser)) {
-            // Посетителям запрещено отменять комнаты
-            return "redirect:/bookings?error=access_denied";
-        }
+        if (!isAdminOrWorker(currentUser)) return "redirect:/bookings?error=access_denied";
 
         Optional<RoomBooking> bookingOpt = roomBookingRepository.findById(id);
         bookingOpt.ifPresent(b -> {
             b.setStatus("отменено");
+            roomBookingRepository.save(b);
+        });
+        return "redirect:/bookings";
+    }
+
+    // НОВОЕ: ЗАВЕРШЕНИЕ КОМНАТЫ (Только Админ/Работник)
+    @PostMapping("/complete/room/{id}")
+    public String completeRoomBooking(@PathVariable Integer id, @AuthenticationPrincipal CustomUserDetails currentUser) {
+        if (!isAdminOrWorker(currentUser)) return "redirect:/bookings?error=access_denied";
+
+        Optional<RoomBooking> bookingOpt = roomBookingRepository.findById(id);
+        bookingOpt.ifPresent(b -> {
+            b.setStatus("завершено");
             roomBookingRepository.save(b);
         });
         return "redirect:/bookings";
