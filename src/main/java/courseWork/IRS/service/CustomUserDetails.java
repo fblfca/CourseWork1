@@ -50,6 +50,10 @@ public class CustomUserDetails implements UserDetails {
         );
     }
 
+    /**
+     * Возвращает ID пользователя из базы данных.
+     * Не входит в стандартный UserDetails, но добавлен для удобства работы в контроллерах.
+     */
     public Integer getId() {
         return id;
     }

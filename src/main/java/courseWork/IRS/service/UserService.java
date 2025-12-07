@@ -11,12 +11,48 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
+/**
+ * Сервисный класс для управления пользователями.
+ *
+ * Назначение класса:
+ * - Обеспечивает бизнес-логику работы с пользователями: регистрация, поиск по email.
+ * - Хеширует пароли перед сохранением в базу данных.
+ * - Служит промежуточным слоем между контроллерами и репозиторием Role (пользователь).
+ *
+ * Связи с другими классами:
+ * - RoleRepository — для сохранения и поиска пользователей в базе данных.
+ * - BCryptPasswordEncoder — для безопасного хеширования паролей.
+ * - Role — модель пользователя (в проекте Role используется как основная сущность пользователя).
+ * - Используется в AuthController для регистрации и в ProfileController для поиска пользователя.
+ *
+ * Основные функции:
+ * - registerUser(): регистрирует нового пользователя, хеширует пароль и сохраняет в БД.
+ * - findByEmail(): находит пользователя по email (логину).
+ */
+
 @Service
 public class UserService {
 
     @Autowired private RoleRepository roleRepository;
     @Autowired private UserInfoRepository userInfoRepository;
     @Autowired private PasswordEncoder passwordEncoder;
+
+    /**
+     * Регистрирует нового пользователя в системе.
+     *
+     * Действия:
+     * - Создаёт новый объект Role (пользователь).
+     * - Хеширует пароль перед сохранением.
+     * - Устанавливает роль по умолчанию (например, "ПОСЕТИТЕЛЬ").
+     * - Сохраняет в базу данных через репозиторий.
+     *
+     * Параметры:
+     * - email — логин пользователя (обязательный).
+     * - password — пароль в открытом виде (будет захеширован).
+     * - name, surname, phone — личные данные пользователя.
+     *
+     * @throws RuntimeException если email уже существует (дубликат)
+     */
 
     public void registerUser(String email, String password, String name, String surname, String phone) {
         if (roleRepository.findByLogin(email).isPresent()) {
