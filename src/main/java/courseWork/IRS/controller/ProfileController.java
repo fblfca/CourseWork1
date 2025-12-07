@@ -14,6 +14,27 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+/**
+ * Контроллер личного кабинета пользователя.
+ *
+ * Назначение класса:
+ * - Отображение главной страницы личного кабинета (/profile).
+ * - Подтягивание полной информации о текущем пользователе из БД.
+ * - Обработка смены пароля.
+ * - Определение прав доступа (админ/работник) для условного отображения элементов интерфейса.
+ *
+ * Связи с другими классами:
+ * - UserService — сервис для поиска пользователя по email.
+ * - RoleRepository — репозиторий для работы с сущностью Role (пользователь).
+ * - CustomUserDetails — объект Spring Security, содержащий данные аутентифицированного пользователя.
+ * - BCryptPasswordEncoder — для хеширования нового пароля.
+ * - Шаблон: profile.html (основная страница личного кабинета).
+ *
+ * Основные функции:
+ * - showProfile(): отображение личного кабинета с загрузкой данных пользователя.
+ * - changePassword(): обработка формы смены пароля.
+ */
+
 @Controller
 public class ProfileController {
 

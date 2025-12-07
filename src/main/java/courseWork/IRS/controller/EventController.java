@@ -19,7 +19,28 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
-import java.util.Optional;
+
+/**
+ * Контроллер для управления особыми мероприятиями парка.
+ *
+ * Назначение класса:
+ * - Обеспечивает просмотр, фильтрацию, создание, редактирование и удаление особых событий.
+ * - Обрабатывает бронирование билетов на мероприятия.
+ * - Реализует разграничение доступа по ролям (посетитель, работник, админ).
+ *
+ * Связи с другими классами:
+ * - Репозитории: EventRepository, EventBookingRepository, RoleRepository.
+ * - Модели: Event, EventBooking, CustomUserDetails.
+ * - Шаблоны: events.html (список), event-form.html (редактирование/создание).
+ * - Использует Spring Security для определения текущего пользователя и его прав.
+ *
+ * Основные функции:
+ * - list(): отображение списка событий с фильтрами по названию и цене.
+ * - showEditForm(): форма создания/редактирования события (только админ).
+ * - saveEvent(): сохранение события (только админ).
+ * - deleteEvent(): удаление события (только админ).
+ * - bookEvent(): бронирование билета на мероприятие (для всех авторизованных).
+ */
 
 @Controller
 @RequestMapping("/events")
@@ -34,7 +55,7 @@ public class EventController {
                          @RequestParam(required = false) BigDecimal priceFrom,
                          @RequestParam(required = false) BigDecimal priceTo,
                          @RequestParam(required = false) LocalDate date,
-                         @RequestParam(required = false, defaultValue = "date_asc") String sort, // НОВОЕ: параметр сортировки
+                         @RequestParam(required = false, defaultValue = "date_asc") String sort, // параметр сортировки
                          Model model,
                          Authentication auth) {
 
@@ -77,7 +98,7 @@ public class EventController {
         model.addAttribute("events", events);
 
         model.addAttribute("isAdminOrWorker", isAdminOrWorker(auth));
-        model.addAttribute("isAdmin", isAdmin(auth)); // СТРОГО АДМИН
+        model.addAttribute("isAdmin", isAdmin(auth));
 
         model.addAttribute("title", title);
         model.addAttribute("priceFrom", priceFrom);

@@ -18,6 +18,26 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+/**
+ * Контроллер для управления аттракционами и залами парка.
+ *
+ * Назначение класса:
+ * - Обеспечивает просмотр, фильтрацию, создание, редактирование и удаление аттракционов и залов.
+ * - Обрабатывает бронирование залов (только для работников и админов).
+ * - Реализует разграничение доступа в зависимости от роли пользователя.
+ *
+ * Связи с другими классами:
+ * - Репозитории: AttractionRepository, RoomRepository, RoomSlotRepository, RoomBookingRepository, RoleRepository.
+ * - Модели: Attraction, Room, RoomBooking, Role, CustomUserDetails.
+ * - Шаблоны: attractions-rooms.html, attraction-form.html, room-form.html.
+ *
+ * Основные функции:
+ * - list(): Отображение списка аттракционов и залов с фильтрами.
+ * - bookRoom(): Бронирование зала для посетителя (только админ/работник).
+ * - Методы редактирования/создания/удаления аттракционов и залов (только админ).
+ * - Вспомогательные методы проверки прав доступа.
+ */
+
 @Controller
 @RequestMapping("/attractions-rooms")
 public class AttractionRoomController {

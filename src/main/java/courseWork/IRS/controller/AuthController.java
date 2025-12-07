@@ -13,28 +13,71 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 
+/**
+ * Контроллер, отвечающий за аутентификацию и регистрацию пользователей.
+ *
+ * Назначение класса:
+ * - Обеспечивает отображение страниц входа и регистрации.
+ * - Обрабатывает процесс регистрации нового пользователя (включая валидацию формы).
+ * - Является точкой входа в приложение — корневой путь "/" перенаправляет на страницу логина.
+ *
+ * Связи с другими классами:
+ * - UserService — сервис для создания пользователя в базе данных.
+ * - Role — модель пользователя (в проекте используется как основная сущность авторизации).
+ * - Шаблоны: auth/login.html и auth/register.html.
+ *
+ * Основные функции:
+ * - root(): обработка корневого пути с редиректом на страницу входа.
+ * - login(): отображение страницы входа.
+ * - showRegistrationForm(): отображение формы регистрации с пустой моделью.
+ * - register(): обработка отправленной формы регистрации с валидацией и сохранением.
+ * - RegistrationForm: внутренний класс-DTO для передачи и валидации данных формы регистрации.
+ */
 @Controller
 public class AuthController {
 
     @Autowired
     private UserService userService;
 
+    /**
+     * Обработка корневого пути приложения.
+     * При обращении к http://localhost:8080 пользователь сразу перенаправляется на страницу входа.
+     */
     @GetMapping("/")
     public String root() {
         return "redirect:/login";
     }
 
+    /**
+     * Отображение страницы входа в систему.
+     * Используется Spring Security как кастомная loginPage.
+     */
     @GetMapping("/login")
     public String login() {
-        return "auth/login";  // → templates/auth/login.html
+        return "auth/login";  // → src/main/resources/templates/auth/login.html
     }
 
+    /**
+     * Отображение формы регистрации.
+     * В модель добавляется пустой объект RegistrationForm для привязки полей формы.
+     */
     @GetMapping("/register")
     public String showRegistrationForm(Model model) {
         model.addAttribute("user", new RegistrationForm());
-        return "auth/register";  // → templates/auth/register.html
+        return "auth/register";
     }
 
+    /**
+     * Обработка отправленной формы регистрации.
+     *
+     * Параметры:
+     * - @Valid RegistrationForm form — данные из формы с включённой валидацией.
+     * - BindingResult result — результат валидации.
+     * - Model model — для передачи сообщения об ошибке (если регистрация не удалась).
+     *
+     * При успешной регистрации происходит редирект на страницу входа с параметром ?registered.
+     * При ошибке (например, email уже занят) — возвращается та же форма с сообщением об ошибке.
+     */
     @PostMapping("/register")
     public String register(@Valid @ModelAttribute("user") RegistrationForm form,
                            BindingResult result,
@@ -57,7 +100,14 @@ public class AuthController {
         }
     }
 
-    // Внутренний класс — оставляем как есть
+    /**
+     * Внутренний DTO-класс для представления и валидации формы регистрации.
+     *
+     * Поля:
+     * - email    — обязательный и валидный email (используется как логин).
+     * - password — обязательный пароль.
+     * - name, surname, phone — необязательные личные данные пользователя.
+     */
     public static class RegistrationForm {
         @Email @NotBlank private String email;
         @NotBlank private String password;
