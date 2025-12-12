@@ -13,13 +13,34 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
+/**
+ * Контроллер для управления бронированиями (залы и особые события).
+ *
+ * Назначение класса:
+ * - Отображение всех броней (для админа/работника) или только своих (для посетителя).
+ * - Удаление и редактирование существующих броней.
+ * - Расчёт стоимости брони зала на основе количества часов и цены за слот.
+ *
+ * Связи с другими классами:
+ * - Репозитории: EventBookingRepository, RoomBookingRepository, RoomRepository.
+ * - Модели: EventBooking, RoomBooking, Room, CustomUserDetails.
+ * - Шаблон: bookings.html (отображает таблицу броней).
+ * - Использует Spring Security для определения текущего пользователя и его роли.
+ *
+ * Основные функции:
+ * - list(): отображение списка броней с фильтрацией по роли.
+ * - deleteEventBooking(): удаление брони на особое событие.
+ * - deleteRoomBooking(): удаление брони зала.
+ * - editRoomBookingForm(): отображение формы редактирования брони зала.
+ * - updateRoomBooking(): сохранение изменений в бронировании зала с пересчётом цены.
+ */
 
 @Controller
 @RequestMapping("/bookings")
