@@ -50,6 +50,14 @@ public class BookingController {
     @Autowired private RoomBookingRepository roomBookingRepository;
     @Autowired private RoomRepository roomRepository;
 
+    /**
+     * Отображает список всех броней.
+     *
+     * Поведение зависит от роли пользователя:
+     * - Посетитель видит только свои брони.
+     * - Работник и админ видят все брони.
+     */
+
     @GetMapping
     public String bookings(
             Model model,
@@ -65,10 +73,11 @@ public class BookingController {
         List<RoomBooking> roomBookings;
 
         if (isAdminOrWorker) {
-            // Для Админа/Работника: показываем всё с возможностью фильтрации
+            // Для Админа/Работника: показываются все брони
             eventBookings = eventBookingRepository.findAll();
             roomBookings = roomBookingRepository.findAll();
 
+            // Для посетителей, соответственно, не все
             if (clientName != null && !clientName.isEmpty()) {
                 String q = clientName.toLowerCase();
                 eventBookings = eventBookings.stream().filter(b -> b.getUserInfo() != null && (b.getUserInfo().getName() + " " + b.getUserInfo().getSurname()).toLowerCase().contains(q)).collect(Collectors.toList());
@@ -90,6 +99,7 @@ public class BookingController {
             roomBookings = roomBookingRepository.findByUserId(userId);
         }
 
+        // Действия по обработке брони во вкладке "Брони" для AdminOrWorker
         eventBookings = eventBookings.stream()
                 .filter(b -> !"отменено".equals(b.getStatus()) && !"завершено".equals(b.getStatus()))
                 .collect(Collectors.toList());
@@ -160,6 +170,14 @@ public class BookingController {
         });
         return "redirect:/bookings";
     }
+
+    /**
+     * Сохранение отредактированной брони зала.
+     *
+     * Происходит пересчёт стоимости на основе количества часов
+     * и цены зала за слот (pricePerSlotHour).
+     * Доступно только админу и работнику.
+     */
 
     @PostMapping("/update/room")
     public String updateRoomBooking(@RequestParam Integer bookingId, @RequestParam Integer slotNumber, @RequestParam String startTime, @RequestParam String endTime, @RequestParam Integer bookingWeight, @AuthenticationPrincipal CustomUserDetails currentUser) {

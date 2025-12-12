@@ -37,6 +37,23 @@ public class UserService {
     @Autowired private UserInfoRepository userInfoRepository;
     @Autowired private PasswordEncoder passwordEncoder;
 
+    /**
+     * Регистрирует нового пользователя в системе.
+     *
+     * Действия:
+     * - Создаёт новый объект Role (пользователь).
+     * - Хеширует пароль перед сохранением.
+     * - Устанавливает роль по умолчанию (например, "ПОСЕТИТЕЛЬ").
+     * - Сохраняет в базу данных через репозиторий.
+     *
+     * Параметры:
+     * - email — логин пользователя (обязательный).
+     * - password — пароль в открытом виде (будет захеширован).
+     * - name, surname, phone — личные данные пользователя.
+     *
+     * @throws RuntimeException если email уже существует (дубликат)
+     */
+
     public void registerUser(String email, String password, String name, String surname, String phone) {
         if (roleRepository.findByLogin(email).isPresent()) {
             throw new RuntimeException("Пользователь с таким email уже существует");
