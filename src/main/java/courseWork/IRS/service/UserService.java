@@ -54,6 +54,7 @@ public class UserService {
      * @throws RuntimeException если email уже существует (дубликат)
      */
 
+    @Transactional
     public void registerUser(String email, String password, String name, String surname, String phone) {
         if (roleRepository.findByLogin(email).isPresent()) {
             throw new RuntimeException("Пользователь с таким email уже существует");
@@ -62,15 +63,16 @@ public class UserService {
         Role role = new Role();
         role.setLogin(email);
         role.setPasswordHash(passwordEncoder.encode(password));
-        role.setRole("ПОЛЬЗОВАТЕЛЬ");
-        role = roleRepository.save(role);
+        role.setRole("пользователь");
 
         UserInfo userInfo = new UserInfo();
-        userInfo.setId(role.getId());
         userInfo.setName(name);
         userInfo.setSurname(surname);
         userInfo.setPhone(phone);
-        userInfoRepository.save(userInfo);
+
+        userInfo.setRole(role);
+        role.setUserInfo(userInfo);
+        roleRepository.save(role);
     }
 
     public UserInfo findByLogin(String login) {
